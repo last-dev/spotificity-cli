@@ -19,6 +19,7 @@ My ever changing todo list is:
 
 - [x] Start adding unit tests for current stage of application.
 - [] Add table attributes to each artist that has their last 3 singles, last 3 songs they were featured on, and last album
+- [] Optimize CLI to reduce latency between actions. More in-memory caching? Asynchronous functions for concurrency?
 - [] Create Lambda function that will query Spotify for new releases from current list. This function will publish updates to AWS SNS topic and update table.
 - [] Implement Cloudwatch Event that will trigger that Lambda every so often (TBD).
 - [] Create simple in-browser frontend where I can view and interact with my table.
