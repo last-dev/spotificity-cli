@@ -24,7 +24,7 @@ My ever changing todo list is:
 - [] Implement Cloudwatch Event that will trigger that Lambda every so often (TBD).
 - [] Create simple in-browser frontend where I can view and interact with my table.
 
-## ***Development***
+## **Development**
 
 Some notes on development for me.
 
