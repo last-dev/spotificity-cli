@@ -12,3 +12,5 @@ cdk.out
 # Testing
 be_synth.yaml
 db_synth.yaml
+test.py
+test.json
