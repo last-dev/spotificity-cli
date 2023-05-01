@@ -44,6 +44,23 @@ class SpotifyOperatorsConstruct(Construct):
             layers=[_requests_layer]
         )
         
+        # Spotify artist's latest music 'getter' Lambda Function
+        self._get_artist_latest_music_lambda = lambda_.Function(
+            self, 'GetArtistsLatestMusic',
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            code=lambda_.Code.from_asset('lambda_functions/GetArtistLatestMusicHandler'),
+            handler='get_artist_latest_music.handler',
+            function_name='GetArtistLatestMusicHandler',
+            description='Queries a series of Spotify API endpoints for the artist\'s latest music.',
+            layers=[_requests_layer],
+            environment={
+                'GET_ACCESS_TOKEN_LAMBDA': self._get_access_token_lambda.function_name
+            }
+        )     
+        
+        # Give 'GetArtistsLatestMusicHandler' permission to invoke 'GetAccessTokenHandler'
+        self._get_access_token_lambda.grant_invoke(self._get_artist_latest_music_lambda)   
+        
         # Import existent Spotify Secret to grant the associated Lambda permissions below 
         __spotify_secrets = ssm.Secret.from_secret_name_v2(
             self, 'ImportedSpotifySecrets',
