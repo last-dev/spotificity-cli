@@ -38,5 +38,5 @@ Some notes on development for me.
 
 1. Activate virtual environment: `source .venv/bin/activate`
 2. Install the required test dependencies: `pip install -r requirements-dev.txt`
-3. Make sure the `__init__.py` file is located in the root of the `cdk/` directory.
+3. Make sure there is an `__init__.py` file located in the root of the `cdk/` directory.
 4. Run `python -m pytest` within `cdk/` or within `cli/`. Don't run in root folder.
