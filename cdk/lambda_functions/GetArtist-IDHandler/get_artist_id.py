@@ -40,11 +40,7 @@ def handler(event: dict, context) -> dict:
         return {
             'statusCode': 200,
             'payload': {
-                'artistSearchResultsList': artist_search_results['artists']['items'],
-                'firstArtistGuess': {
-                    'artist_id': artist_search_results['artists']['items'][0]['id'],
-                    'artist_name': artist_search_results['artists']['items'][0]['name']
-                }
+                'artistSearchResultsList': artist_search_results['artists']['items']
             }
         }
     
