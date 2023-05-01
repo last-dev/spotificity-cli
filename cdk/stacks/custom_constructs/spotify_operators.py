@@ -46,7 +46,7 @@ class SpotifyOperatorsConstruct(Construct):
         
         # Spotify artist's latest music 'getter' Lambda Function
         self._get_artist_latest_music_lambda = lambda_.Function(
-            self, 'GetArtistsLatestMusic',
+            self, 'GetArtistLatestMusic',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/GetArtistLatestMusicHandler'),
             handler='get_artist_latest_music.handler',
