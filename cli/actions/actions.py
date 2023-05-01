@@ -133,6 +133,15 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str]:
                         print(f'\n[{colorfy(Colors.LIGHT_GREEN, current_iteration_str)}]')
                         print(f'\tArtist: {results["artistSearchResultsList"][i]["name"]}')
                         
+                        # Format genres into a string
+                        genres = results["artistSearchResultsList"][i]["genres"]
+                        if genres:
+                            genres_str = ', '.join(genre.title() for genre in genres)
+                        else:
+                            genres_str = 'N/A'
+                            
+                        print(f'\tGenre(s): {genres_str}')
+                        
                     # Prompt user for artist choice again
                     user_choice = input(f'\nWhich artist were you looking for? Select the number.\n> ')
                     
