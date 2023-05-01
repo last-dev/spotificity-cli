@@ -13,8 +13,8 @@ def handler(event: dict, context) -> dict:
     table = os.getenv('ARTIST_TABLE_NAME')
 
     try:
-      # Scans specified table and returns all items in a list within a dict
       print(f'Sending scan request to {table}...')
+      
       response = ddb.scan(  
           TableName=table,
           Select='ALL_ATTRIBUTES',
@@ -27,13 +27,10 @@ def handler(event: dict, context) -> dict:
     except Exception as err:
       print(f'Other Error Occurred: {err}')
     else: 
-
       print('Prepping return payload. Adding artists to list...')
 
       # Extract out only artist ID and name. Then add all artists into a list of dicts
-      current_artists_with_id: list[dict] = []
-      for artist in response['Items']:
-        current_artists_with_id.append({'artist_id': artist['artist_id']['S'], 'artist_name': artist['artist_name']['S']})
+      current_artists_with_id: list[dict] = [{'artist_id': artist['artist_id']['S'], 'artist_name': artist['artist_name']['S']} for artist in response['Items']]
 
       # Extract out only artist name. Then add all artists into a list
       current_artists_names: list[str] = [artist['artist_name']['S'] for artist in response['Items']]
@@ -51,9 +48,8 @@ def handler(event: dict, context) -> dict:
             'artists': {
               'current_artists_names': current_artists_names,
               'current_artists_with_id': current_artists_with_id
-            }},
-          'headers': {'Content-Type': 'text/plain'}
+            }
+          }
       }
     
-    # Sentinel Value used to appease Pylance.
     return {}

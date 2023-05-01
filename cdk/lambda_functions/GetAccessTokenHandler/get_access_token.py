@@ -11,16 +11,15 @@ def handler(event, context) -> dict:
     access token. This access token is needed for all future Spotify API calls. 
     """
     
-    try:
-        # Create a Secrets Manager client
-        ssm = boto3.client('secretsmanager')
+    # Create a Secrets Manager client
+    ssm = boto3.client('secretsmanager')
         
-        # Pull Spotify client_id and client_secret from Secrets Manager
+    try:        
         print('Attempting to pull Spotify client credentials from AWS Secrets Manager...')
+        
         response = ssm.get_secret_value(
             SecretId='SpotifySecrets'
         )
-        
     except ClientError as err:
       print(f'Client Error Message: {err.response["Error"]["Message"]}')
       print(f'Client Error Code: {err.response["Error"]["Code"]}')
@@ -35,16 +34,16 @@ def handler(event, context) -> dict:
         client_id = client_creds['SPOTIFY_CLIENT_ID']
         client_secret = client_creds['SPOTIFY_CLIENT_SECRET']
         
-        # Request token
+        # Request access token
         access_token = request_token(client_id, client_secret)
         
         return {
             'status-code': 200,
-            'payload': {'access_token': access_token},
-            'headers': {'Content-Type': 'text/plain'}
+            'payload': {
+                'access_token': access_token
+            }
         }
     
-    # Sentinel Value used to appease Pylance.
     return {}
 
 def request_token(client_id: str, client_secret: str) -> str:
@@ -56,19 +55,19 @@ def request_token(client_id: str, client_secret: str) -> str:
     endpoint = 'https://accounts.spotify.com/api/token'
     
     try:
-        # POST request to Spotify '/api/token' endpoint
         print("Initiating POST request for Access Token...")
         
-        response = requests.post(endpoint, 
-                                # Set the required headers and data for the request
-                                headers={
-                                    # Encode the client credentials to base64
-                                    'Authorization': f'Basic {base64.b64encode(client_creds.encode()).decode()}',
-                                    'Content-Type': 'application/x-www-form-urlencoded'
-                                }, 
-                                data={
-                                    'grant_type': 'client_credentials'
-                                })
+        response = requests.post(
+            url=endpoint, 
+            headers={
+                # Encode the client credentials to base64
+                'Authorization': f'Basic {base64.b64encode(client_creds.encode()).decode()}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }, 
+            data={
+                'grant_type': 'client_credentials'
+            }
+        )
         
         # Catch any HTTP errors
         response.raise_for_status()
@@ -79,6 +78,5 @@ def request_token(client_id: str, client_secret: str) -> str:
     else:
         print(f'Successfully retrieved a access token. Status code: {response.status_code}.')
         return response.json()['access_token']
-    
-    # Sentinel Value used to appease Pylance.
+
     return ''

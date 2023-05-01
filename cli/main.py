@@ -86,7 +86,7 @@ def main() -> None:
             user_choice, menu_choices = main_menu()
             
             # If user choice needs a token, pass it to the function
-            # If user choice needs to loop back to main menu once executed, pass in continue_prompt=True
+            # If user choice needs to loop back to main menu after execution, pass in True for continue_prompt
             for menu_item_num, menu_item_value in menu_choices.items():
                 if user_choice == menu_item_num and menu_item_value["token_needed"] == True and menu_item_value["continue_prompt"] == True:
                     menu_item_value["function"](access_token, continue_prompt=True)

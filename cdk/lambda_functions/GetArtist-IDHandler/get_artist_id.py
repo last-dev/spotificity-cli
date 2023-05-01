@@ -3,7 +3,7 @@ import requests
 
 def handler(event: dict, context) -> dict:
     """
-    Queries the Spotify Search API for the artist ID. 
+    Queries the Spotify `Search` API for the artist's Spotify ID. 
     """
     
     endpoint = 'https://api.spotify.com/v1/search'
@@ -11,16 +11,19 @@ def handler(event: dict, context) -> dict:
     access_token: str = event['access_token']
     
     try:
-        # Send GET request to Spotify '/search' endpoint
         print('Initiating GET request for artist ID...')
-        response = requests.get(endpoint,
-                                params={
-                                    'q': artist_name,
-                                    'type': 'artist',
-                                    'limit': 3},
-                                headers={
-                                    'Authorization': f'Bearer {access_token}'}
-                                )
+        
+        response = requests.get(
+            url=endpoint,
+            params={
+                'q': artist_name,
+                'type': 'artist',
+                'limit': 3
+            },
+            headers={
+                'Authorization': f'Bearer {access_token}'
+            }
+        )
         
         # Catch any HTTP errors
         response.raise_for_status()
@@ -41,9 +44,8 @@ def handler(event: dict, context) -> dict:
                 'firstArtistGuess': {
                     'artist_id': artist_search_results['artists']['items'][0]['id'],
                     'artist_name': artist_search_results['artists']['items'][0]['name']
-                }},
-            'headers': {'Content-Type': 'text/plain'}
+                }
+            }
         }
     
-    # Sentinel Value used to appease Pylance.
     return {}

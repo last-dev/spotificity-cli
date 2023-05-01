@@ -16,10 +16,9 @@ def handler(event: dict, context) -> dict:
     ddb = boto3.client('dynamodb')
     table = os.getenv('ARTIST_TABLE_NAME')
 
-
     try:
-      # Removes an artist from specified table 
       print(f'Removing {artist["artist_name"]} from {table}...')
+      
       response = ddb.delete_item(
         TableName=table,
         Key={
@@ -29,7 +28,6 @@ def handler(event: dict, context) -> dict:
         },
         ReturnConsumedCapacity='TOTAL'
       )
-
     except ClientError as err:
       print(f'Client Error Message: {err.response["Error"]["Message"]}')
       print(f'Client Error Code: {err.response["Error"]["Code"]}')
@@ -37,16 +35,14 @@ def handler(event: dict, context) -> dict:
     except Exception as err:
       print(f'Other Error Occurred: {err}')
     else: 
-
       print('DELETE request successful. Returning payload to client.')
+      
       return {
           'statusCode': 200,
           'payload': {
             'artistRemovedFromTable': artist["artist_name"],
             'returnPayloadFromDelete': response
-          },
-          'headers': {'Content-Type': 'text/plain'}
+          }
       }
     
-    # Sentinel return value to appease Pylance
     return {}
