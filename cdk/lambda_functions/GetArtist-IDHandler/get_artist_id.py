@@ -6,7 +6,7 @@ def handler(event: dict, context) -> dict:
     Queries the Spotify `Search` API for the artist's Spotify ID. 
     """
     
-    endpoint = 'https://api.spotify.com/v1/search'
+    endpoint: str = 'https://api.spotify.com/v1/search'
     artist_name: str = event['artist_name']
     access_token: str = event['access_token']
     
@@ -18,7 +18,9 @@ def handler(event: dict, context) -> dict:
             params={
                 'q': artist_name,
                 'type': 'artist',
-                'limit': 5  # Return 5 of the closest matches from search
+                'limit': 5,
+                'offset': 0,
+                'market': 'US'
             },
             headers={
                 'Authorization': f'Bearer {access_token}'

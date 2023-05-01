@@ -51,8 +51,8 @@ def request_token(client_id: str, client_secret: str) -> str:
     Sends POST request to Spotify Token API to get an access token
     """    
     
-    client_creds = f'{client_id}:{client_secret}'
-    endpoint = 'https://accounts.spotify.com/api/token'
+    client_creds: str = f'{client_id}:{client_secret}'
+    endpoint: str = 'https://accounts.spotify.com/api/token'
     
     try:
         print("Initiating POST request for Access Token...")

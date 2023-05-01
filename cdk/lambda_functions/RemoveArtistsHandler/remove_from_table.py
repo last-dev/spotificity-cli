@@ -9,7 +9,7 @@ def handler(event: dict, context) -> dict:
     """
     
     print(f'Passed in payload: {event}')
-    artist: dict = event
+    artist_name: str = event['artist_name']
     artist_id: str = event['artist_id']
     
     # Create a DynamoDB client
@@ -17,7 +17,7 @@ def handler(event: dict, context) -> dict:
     table = os.getenv('ARTIST_TABLE_NAME')
 
     try:
-      print(f'Removing {artist["artist_name"]} from {table}...')
+      print(f'Removing {artist_name} from {table}...')
       
       response = ddb.delete_item(
         TableName=table,
@@ -40,7 +40,7 @@ def handler(event: dict, context) -> dict:
       return {
           'statusCode': 200,
           'payload': {
-            'artistRemovedFromTable': artist["artist_name"],
+            'artistRemovedFromTable': artist_name,
             'returnPayloadFromDelete': response
           }
       }
