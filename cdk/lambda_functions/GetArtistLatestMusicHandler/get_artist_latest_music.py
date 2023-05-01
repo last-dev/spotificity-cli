@@ -12,24 +12,23 @@ def handler(event: dict, context) -> dict:
     """
     
     # If access token is passed in, use it. Otherwise, invoke Lambda that will return one.
-    if not event['access_token']:
-        access_token = request_token()
-    else: 
+    try:
         access_token: str = event['access_token']
-    
+    except KeyError:
+        access_token = request_token()
+        
     artist_id: str = event['artist_id']
     artist_name: str = event['artist_name']
     
+    # Get latest musical releases
     last_album_details = get_latest_album(artist_id, artist_name, access_token)
     last_single_details = get_latest_single(artist_id, artist_name, access_token)
-    latest_tracks_featured_on_details = get_latest_tracks_artist_featured_on(artist_id, access_token)
     
     return {
         'status': 200,
         'payload': {
             'last_album_details': last_album_details,
-            'last_single_details': last_single_details,
-            'latest_tracks_featured_on_details': latest_tracks_featured_on_details
+            'last_single_details': last_single_details
         }
     }
     
@@ -154,47 +153,61 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
         
     return {}
 
-def get_latest_tracks_artist_featured_on(artist_name: str, access_token: str) -> dict:
-    """
-    Queries the Spotify API to return the last track the artist was 
-    featured on
-    """
+"""
+Unfortunately it turns out Spotify does not have a way to filter by songs the artist is featured on.
+Until then, this will be commented out. 
+"""
+
+# def get_latest_tracks_artist_featured_on(artist_name: str, access_token: str) -> dict:
+#     """
+#     Queries the Spotify API to return the last track the artist was 
+#     featured on
+#     """
     
-    endpoint: str = 'https://api.spotify.com/v1/search'
+#     endpoint: str = 'https://api.spotify.com/v1/search'
     
-    try:
-        print(f'Initiating GET request for the last track {artist_name} was featured on...')
+#     try:
+#         print(f'Initiating GET request for the last track {artist_name} was featured on...')
         
-        response = requests.get(
-            url=endpoint,
-            params={
-                'q': f'artist:{artist_name}',
-                'type': 'track',
-                'limit': 20,
-                'offset': 0,
-                'market': 'US'
-            },
-            headers={
-                'Authorization': f'Bearer {access_token}'
-            }
-        )
+#         response = requests.get(
+#             url=endpoint,
+#             params={
+#                 'q': f'featured:{artist_name}',
+#                 'type': 'track',
+#                 'limit': 100,
+#                 'offset': 0,
+#                 'market': 'US'
+#             },
+#             headers={
+#                 'Authorization': f'Bearer {access_token}'
+#             }
+#         )
         
-        # Catch any HTTP errors
-        response.raise_for_status()
-    except HTTPError as err:
-        print(f'HTTP Error occurred: {err}')
-    except Exception as err:
-        print(f'Other error occurred: {err}')
-    else:
-        print('Parsing JSON...')
+#         # Catch any HTTP errors
+#         response.raise_for_status()
+#     except HTTPError as err:
+#         print(f'HTTP Error occurred: {err}')
+#     except Exception as err:
+#         print(f'Other error occurred: {err}')
+#     else:
+#         print('Parsing JSON...')
         
-        # Extract out the last couple track's featured on details
-        # First sort results by release date
-        latest_tracks_list: list = response.json()['tracks']['items']
-        sorted_results = sorted(latest_tracks_list[track]['release_date'] for track in latest_tracks_list)
-        
-        return {
-            'last_2_featured_tracks': sorted_results[:2],
-        }
+#         # Sort the featured tracks by release date (descending)   
+#         featured_tracks: dict = response.json()
+#         sorted_tracks: list = sorted(
+#             featured_tracks['tracks']['items'],
+#             key=lambda x: x['album']['release_date'],
+#             reverse=True
+#         )
+
+#         # Only keep songs where artist is featured
+#         songs: list = [
+#             track for track in sorted_tracks
+#             if any(artist['name'] == artist_name and artist != track['artists'][0] for artist in track['artists'])
+#         ]
+
+#         return {
+#             'last_2_featured_tracks': songs[:2]
+#         }
                 
-    return {}
+#     return {}
