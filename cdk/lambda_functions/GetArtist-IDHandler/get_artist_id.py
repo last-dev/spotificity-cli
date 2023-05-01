@@ -18,7 +18,7 @@ def handler(event: dict, context) -> dict:
             params={
                 'q': artist_name,
                 'type': 'artist',
-                'limit': 3
+                'limit': 5  # Return 5 of the closest matches from search
             },
             headers={
                 'Authorization': f'Bearer {access_token}'
