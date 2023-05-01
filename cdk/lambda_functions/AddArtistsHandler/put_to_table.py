@@ -8,7 +8,7 @@ def handler(event: dict, context) -> dict:
     the "Monitored Artists" DynamoDB table
     """
 
-    print(f'Passed in payload: {event}')
+    print(f'Passed in artist payload: {event}')
     artist: dict = event
     artist_name: str = event['artist_name']
     access_id: str = event['artist_id']
@@ -18,8 +18,8 @@ def handler(event: dict, context) -> dict:
     table = os.getenv('ARTIST_TABLE_NAME')
 
     try:
-      # Adds artist to specified table 
       print(f'Adding {artist["artist_name"]} to {table}...')
+      
       response = ddb.put_item(
         TableName=table,
         Item={
@@ -32,7 +32,6 @@ def handler(event: dict, context) -> dict:
         },
         ReturnConsumedCapacity='TOTAL'
       )
-
     except ClientError as err:
       print(f'Client Error Message: {err.response["Error"]["Message"]}')
       print(f'Client Error Code: {err.response["Error"]["Code"]}')
@@ -40,16 +39,14 @@ def handler(event: dict, context) -> dict:
     except Exception as err:
       print(f'Other Error Occurred: {err}')
     else: 
-
       print('PUT request successful. Returning payload to client.')
+      
       return {
           'statusCode': 200,
           'payload': {
             'artistAddedToTable': artist["artist_name"],
             'returnPayloadFromPut': response
-          },
-          'headers': {'Content-Type': 'text/plain'}
+          }
       }
-    
-    # Sentinel Value used to appease Pylance.
+
     return {}
