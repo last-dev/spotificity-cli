@@ -9,7 +9,6 @@ def handler(event: dict, context) -> dict:
     """
 
     print(f'Passed in artist payload: {event}')
-    artist: dict = event
     artist_name: str = event['artist_name']
     access_id: str = event['artist_id']
 
@@ -18,7 +17,7 @@ def handler(event: dict, context) -> dict:
     table = os.getenv('ARTIST_TABLE_NAME')
 
     try:
-      print(f'Adding {artist["artist_name"]} to {table}...')
+      print(f'Adding {artist_name} to {table}...')
       
       response = ddb.put_item(
         TableName=table,
@@ -44,7 +43,7 @@ def handler(event: dict, context) -> dict:
       return {
           'statusCode': 200,
           'payload': {
-            'artistAddedToTable': artist["artist_name"],
+            'artistAddedToTable': artist_name,
             'returnPayloadFromPut': response
           }
       }

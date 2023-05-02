@@ -7,86 +7,75 @@ monitored artists.
 from constructs import Construct
 from aws_cdk import (
     aws_lambda as lambda_,
-    CfnOutput, Fn
+    aws_dynamodb as ddb,
+    CfnOutput
 )
 
-class TableManipulatorsConstruct(Construct):
+class TableManipulatorsConstruct(Construct):  
     
     @property
-    def get_artists_lambda(self) -> lambda_.Function:
-        """ Returns GetArtistHandler Lambda Function """
-        return self._get_artist_lambda
-    
-    @property
-    def add_artists_lambda(self) -> lambda_.Function:
-        """ Returns AddArtistHandler Lambda Function """
-        return self._add_artist_lambda
-    
-    @property
-    def remove_artists_lambda(self) -> lambda_.Function:
-        """ Returns RemoveArtistHandler Lambda Function """
-        return self._remove_artist_lambda
-    
-    def __init__(self, scope: Construct, id: str, **kwargs) -> None:
+    def update_table_music_lambda(self) -> lambda_.Function:
+        """ Returns lambda Function object for 'UpdateTableMusicHandler' """
+        return self._update_table_music_lambda
+        
+    def __init__(self, scope: Construct, id: str, artist_table: ddb.Table, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         
         # Getter Lambda function for 'Monitored Artists' Table
-        self._get_artist_lambda = lambda_.Function(
-            self, 'GetArtistsHandler',
+        _get_artist_lambda = lambda_.Function(
+            self, 'GetArtists',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/GetArtistsHandler'),
             handler='scan_table.handler',
             environment={
-                'ARTIST_TABLE_NAME': Fn.import_value('ArtistTableName')
+                'ARTIST_TABLE_NAME': artist_table.table_name
             },
             function_name='GetArtistsHandler',
-            description=f'Returns a list of all current artists being monitored in "Monitored Artists" DynamoDB table ({Fn.import_value("ArtistTableName")}).'
+            description=f'Returns a list of all current artists being monitored in "Monitored Artists" DynamoDB table ({artist_table.table_name}).'
         )
 
         # Setter Lambda function for 'Monitored Artists' Table
-        self._add_artist_lambda = lambda_.Function(
-            self, 'AddArtistsHandler',
+        _add_artist_lambda = lambda_.Function(
+            self, 'AddArtists',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/AddArtistsHandler'),
             handler='put_to_table.handler',
             environment={
-                'ARTIST_TABLE_NAME': Fn.import_value('ArtistTableName')
+                'ARTIST_TABLE_NAME': artist_table.table_name
             },
             function_name='AddArtistsHandler',
-            description=f'Adds a new artist to the "Monitored Artists" DynamoDB table ({Fn.import_value("ArtistTableName")}).'
+            description=f'Adds a new artist to the "Monitored Artists" DynamoDB table ({artist_table.table_name}).'
         )
         
         # Deleter Lambda function for 'Monitored Artists' Table
-        self._remove_artist_lambda = lambda_.Function(
-            self, 'RemoveArtistsHandler',
+        _remove_artist_lambda = lambda_.Function(
+            self, 'RemoveArtists',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/RemoveArtistsHandler'),
             handler='remove_from_table.handler',
             environment={
-                'ARTIST_TABLE_NAME': Fn.import_value('ArtistTableName')
+                'ARTIST_TABLE_NAME': artist_table.table_name
             },
             function_name='RemoveArtistsHandler',
-            description=f'Removes an artist from the "Monitored Artists" DynamoDB table ({Fn.import_value("ArtistTableName")}).'
+            description=f'Removes an artist from the "Monitored Artists" DynamoDB table ({artist_table.table_name}).'
+        )
+        
+        # Lambda function that will update the 'Monitored Artists' table with the latest musical release for each artist
+        self._update_table_music_lambda = lambda_.Function(
+            self, 'UpdateTableMusic',
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            code=lambda_.Code.from_asset('lambda_functions/UpdateTableMusicHandler'),
+            handler='update_table_music.handler',
+            environment={
+                'ARTIST_TABLE_NAME': artist_table.table_name
+            },
+            function_name='UpdateTableMusicHandler',
+            description=f'Once the latest musical release is pulled by "GetArtistLatestMusic" Lambda, this updates {artist_table.table_name}\'s artist attributes.'
         )
 
-        # Export Lambda Function names as Cloudformation resources to be used in BackendStack
-        CfnOutput(
-            self, 'GetArtistsLambdaName',
-            value=self._get_artist_lambda.function_name,
-            export_name='GetArtistsLambda',
-            description='Name of Lambda function that list\'s all monitored artists.'
-        )
+        # Give Lambda functions specific permissions to do their operations against the table
+        artist_table.grant_read_data(_get_artist_lambda)
+        artist_table.grant_write_data(_add_artist_lambda)
+        artist_table.grant_write_data(_remove_artist_lambda)
+        artist_table.grant_write_data(self._update_table_music_lambda)
 
-        CfnOutput(
-            self, 'AddArtistsLambdaName',
-            value=self._add_artist_lambda.function_name,
-            export_name='AddArtistsLambda',
-            description='Name of Lambda function that adds a new artist to be monitored.'
-        )
-
-        CfnOutput(
-            self, 'RemoveArtistsLambdaName',
-            value=self._remove_artist_lambda.function_name,
-            export_name='RemoveArtistsLambda',
-            description='Name of Lambda function that removes an artist from being monitored.'
-        )

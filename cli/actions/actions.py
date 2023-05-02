@@ -117,7 +117,10 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str]:
         results = returned_payload['payload']
 
         # Give user the most likely artist they were looking for 
-        first_artist_guess = results['firstArtistGuess']
+        first_artist_guess = {
+            'artist_id': results['artistSearchResultsList'][0]['id'],
+            'artist_name': results['artistSearchResultsList'][0]['name']
+        }
 
         # Fetch user choice. Check to make sure it is a proper selection
         while True:
