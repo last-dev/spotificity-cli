@@ -12,16 +12,14 @@ default_account = cdk.Environment(
     )
 
 app = cdk.App()
-backend_stack = BackendStack(
-    app, 'SpotificityBackendStack',
+database_stack = DatabaseStack(
+    app, 'SpotificityDatabaseStack',
     env=default_account
 )
-database_stack = DatabaseStack(
-    app, 'SpotificityDatabaseStack', 
-    get_artist_lambda=backend_stack.table_manipulators.get_artists_lambda,
-    add_artist_lambda=backend_stack.table_manipulators.add_artists_lambda, 
-    remove_artist_lambda=backend_stack.table_manipulators.remove_artists_lambda,
-    env=default_account
+backend_stack = BackendStack(
+    app, 'SpotificityBackendStack',
+    env=default_account,
+    monitored_artist_table=database_stack.artist_table
 )
 
 # Establishing that the BackendStack depends on the DatabaseStack. 
