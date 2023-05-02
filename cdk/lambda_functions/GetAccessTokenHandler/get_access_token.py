@@ -73,10 +73,13 @@ def request_token(client_id: str, client_secret: str) -> str:
         response.raise_for_status()
     except HTTPError as err:
         print(f'HTTP Error occurred: {err}')
+        raise
     except Exception as err:
         print(f'Other error occurred: {err}')
+        raise
     else:
         print(f'Successfully retrieved a access token. Status code: {response.status_code}.')
+        print(response.json())
+        
         return response.json()['access_token']
 
-    return ''
