@@ -10,8 +10,7 @@ import json
 import sys
 
 # Local memory storage of the current artists I am monitoring
-ARTIST_CACHE: list[dict] = []
-IS_CACHE_EMPTY: bool = False
+CACHED_ARTIST_LIST = []
 
 def request_token() -> str:
     """
@@ -50,18 +49,20 @@ def list_artists(continue_prompt=False) -> None:
     Prints out a list of the current artists that are being monitored
     """
 
-    global ARTIST_CACHE, IS_CACHE_EMPTY
+    global CACHED_ARTIST_LIST
     lambda_name = 'FetchArtistsHandler'
 
-    # Use cached list of artists, otherwise, invoke lambda to get fresh data
-    if len(ARTIST_CACHE) > 0 or IS_CACHE_EMPTY:
-        if len(ARTIST_CACHE) >0:
-            for i in range(len(ARTIST_CACHE)):
-                current_iteration_num = str(i + 1)
-                print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {ARTIST_CACHE[i]["artist_name"]}')
+    # If cached list is not `None`, but is empty, then it means that no artists are being monitored
+    # Otherwise, invoke Lambda to fetch fresh data
+    if CACHED_ARTIST_LIST is not None:
+        if CACHED_ARTIST_LIST:
+            for index, artist in enumerate(CACHED_ARTIST_LIST, start=1):
+                print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, str(index))}] {artist["artist_name"]}')
         else:
             print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
     else: 
+        
+        # Invoke Lambda to fetch fresh data
         try:
             lambda_ = boto3.client('lambda')
             response = lambda_.invoke(
@@ -90,18 +91,19 @@ def list_artists(continue_prompt=False) -> None:
            # Print out list of artists
             elif returned_payload['status_code'] == 204:
                 print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
-                IS_CACHE_EMPTY = True
+                
+                # Update cache to be an empty list
+                CACHED_ARTIST_LIST = []
             else:
                 print('\nCurrent monitored artists:')
                 list_of_names: list[str] = returned_payload['payload']['artists']['current_artists_names']
                 
-                for i in range(len(list_of_names)):
-                    current_iteration_num = str(i + 1)
-                    print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {list_of_names[i]}')
+                # Print out list of current artists
+                for index, artist in enumerate(list_of_names, start=1):
+                    print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, str(index))}] {artist}')
 
-                # Update cache with current artists 
-                ARTIST_CACHE = returned_payload['payload']['artists']['current_artists_with_id']
-                IS_CACHE_EMPTY = False
+                # Update cache with current artists list
+                CACHED_ARTIST_LIST = returned_payload['payload']['artists']['current_artists_with_id']
 
     menu_loop_prompt(continue_prompt)
 
@@ -188,7 +190,7 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
     Then invokes a lambda function that performs a PUT request against a DynamoDB table.
     """
     
-    global ARTIST_CACHE
+    global CACHED_ARTIST_LIST
 
     while True:
         
@@ -201,7 +203,7 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         artist = {'artist_id': artist_id, 'artist_name': artist_name}
         
         # Find out if artist is already in list. If not, add the artist
-        if artist in ARTIST_CACHE:
+        if artist in CACHED_ARTIST_LIST:
             print(f'\nYou\'re already monitoring {colorfy(Colors.LIGHT_GREEN, artist_name)}!')
         else:
             lambda_name = 'AddArtistsHandler'
@@ -235,7 +237,7 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
                 else: 
                     
                     # Update cache with new addition
-                    ARTIST_CACHE.append(artist)
+                    CACHED_ARTIST_LIST.append(artist)
                 
                     print(f'\n\tYou are now monitoring for {colorfy(Colors.LIGHT_GREEN, artist_name)}\'s new music!')
                     break
@@ -248,14 +250,14 @@ def remove_artist(continue_prompt=False) -> None:
     Removes an artist from the monitored list
     """
     
-    global ARTIST_CACHE
+    global CACHED_ARTIST_LIST
 
     # Ask which artist the user would like to remove
     list_artists()
     while True:
         try:
             choice = int((input("\nWhich artist would you like to remove? Make a selection:\n> ")))
-            if choice in list(range(1, len(ARTIST_CACHE) + 1)):
+            if choice in list(range(1, len(CACHED_ARTIST_LIST) + 1)):
                 break
             else:
                 raise ValueError
@@ -265,8 +267,8 @@ def remove_artist(continue_prompt=False) -> None:
     # Invoke a lambda function that performs a DELETE request against a DynamoDB table.
     lambda_name = 'RemoveArtistsHandler'
     payload = json.dumps({
-        'artist_id': ARTIST_CACHE[choice - 1]['artist_id'],
-        'artist_name': ARTIST_CACHE[choice - 1]['artist_name']
+        'artist_id': CACHED_ARTIST_LIST[choice - 1]['artist_id'],
+        'artist_name': CACHED_ARTIST_LIST[choice - 1]['artist_name']
     })
 
     try:
@@ -293,8 +295,8 @@ def remove_artist(continue_prompt=False) -> None:
         else:
             
             # Update cache by removing artist
-            print(f"\n\tRemoved {colorfy(Colors.LIGHT_GREEN, ARTIST_CACHE[choice - 1]['artist_name'])} from list!")
-            ARTIST_CACHE.pop(choice - 1)
+            print(f"\n\tRemoved {colorfy(Colors.LIGHT_GREEN, CACHED_ARTIST_LIST[choice - 1]['artist_name'])} from list!")
+            CACHED_ARTIST_LIST.pop(choice - 1)
             
     menu_loop_prompt(continue_prompt)
 
