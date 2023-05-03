@@ -1,4 +1,8 @@
-from exceptions.error_handling import FailedToRetrieveToken
+from exceptions.error_handling import (
+    FailedToRetrieveToken, 
+    FailedToRetrieveListOfArtists,
+    ExceptionDuringLambdaExecution
+)
 from ui.colors import Colors, print_colors, colorfy
 from botocore.exceptions import ClientError
 import boto3
@@ -7,6 +11,7 @@ import sys
 
 # Local memory storage of the current artists I am monitoring
 ARTIST_CACHE: list[dict] = []
+IS_CACHE_EMPTY: bool = False
 
 def request_token() -> str:
     """
@@ -45,14 +50,17 @@ def list_artists(continue_prompt=False) -> None:
     Prints out a list of the current artists that are being monitored
     """
 
-    global ARTIST_CACHE
+    global ARTIST_CACHE, IS_CACHE_EMPTY
     lambda_name = 'FetchArtistsHandler'
 
     # Use cached list of artists, otherwise, invoke lambda to get fresh data
-    if len(ARTIST_CACHE) > 0:
-        for i in range(len(ARTIST_CACHE)):
-            current_iteration_num = str(i + 1)
-            print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {ARTIST_CACHE[i]["artist_name"]}')
+    if len(ARTIST_CACHE) > 0 or IS_CACHE_EMPTY:
+        if len(ARTIST_CACHE) >0:
+            for i in range(len(ARTIST_CACHE)):
+                current_iteration_num = str(i + 1)
+                print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {ARTIST_CACHE[i]["artist_name"]}')
+        else:
+            print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
     else: 
         try:
             lambda_ = boto3.client('lambda')
@@ -61,25 +69,39 @@ def list_artists(continue_prompt=False) -> None:
                 InvocationType='RequestResponse'
             )    
         except ClientError as err:
-            print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-            print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
+            print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
             raise
         except Exception as err:
-            print(f'\n\tOther error occurred: \n\t{err}')
+            print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
             raise
         else:
 
             # Convert botocore.response.StreamingBody object to dict
             returned_payload: dict = json.load(response['Payload'])
-            
-            print('\nCurrent monitored artists:')
-            list_of_names: list[str] = returned_payload['payload']['artists']['current_artists_names']
-            for i in range(len(list_of_names)):
-                current_iteration_num = str(i + 1)
-                print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {list_of_names[i]}')
 
-            # Update cache with current artists 
-            ARTIST_CACHE = returned_payload['payload']['artists']['current_artists_with_id']
+            # Catch any errors that occurred during `FetchArtistsHandler` execution
+            if returned_payload.get('errorMessage'):
+                raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
+
+            # Catch any errors that occurred during scan operation on DynamoDB table. 
+            elif returned_payload['payload'].get('error'):
+                raise FailedToRetrieveListOfArtists(returned_payload['payload']['error'])
+            
+           # Print out list of artists
+            elif returned_payload['status_code'] == 204:
+                print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
+                IS_CACHE_EMPTY = True
+            else:
+                print('\nCurrent monitored artists:')
+                list_of_names: list[str] = returned_payload['payload']['artists']['current_artists_names']
+                
+                for i in range(len(list_of_names)):
+                    current_iteration_num = str(i + 1)
+                    print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, current_iteration_num)}] {list_of_names[i]}')
+
+                # Update cache with current artists 
+                ARTIST_CACHE = returned_payload['payload']['artists']['current_artists_with_id']
+                IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
 
