@@ -102,7 +102,7 @@ def request_token() -> str:
         print(f'Other error occurred: {err}')
         raise
     else:
-        print('Successfully received access token from Spotify\'s Token API.')
+        print('Parsing returned payload...')
         
         # Convert botocore.response.StreamingBody object to dict
         returned_json: dict = json.load(response['Payload'])
@@ -111,6 +111,7 @@ def request_token() -> str:
         if returned_json.get('access_token') is None:
             raise Exception('Failed to retrieve access token.')
         else:
+            print('Successfully received access token from Spotify\'s Token API.')
             return returned_json['access_token']
     
 def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dict:
