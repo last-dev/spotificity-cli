@@ -7,7 +7,7 @@ class FailedToRetrieveToken(Exception):
     def __str__(self) -> str:
         return colorfy(Colors.RED, '\n\nFailed to return access_token from "GetAccessTokenHandler"')
     
-class FailedToRetrieveListOfArtists(Exception):
+class FailedToRetrieveMonitoredArtists(Exception):
     """
     Raised when scan operation against DynamoDB table fails
     """
@@ -28,5 +28,12 @@ class ExceptionDuringLambdaExecution(Exception):
     def __str__(self) -> str:
         return colorfy(Colors.RED, f'\nWhile executing {self.lambda_name}, an exception was raised: \n\n{self.error_message}')
         
+class FailedToRetrieveListOfMatchesWithIDs(Exception):
+    """
+    Raised when scan operation against DynamoDB table fails
+    """
+    def __init__(self, error_message: str) -> None:
+        self.error_message = error_message
 
-    
+    def __str__(self) -> str:
+        return colorfy(Colors.RED, f'\nFailed to retrieve list of close matches to user choice from Spotify API: \n\n{self.error_message}')
