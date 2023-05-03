@@ -54,12 +54,6 @@ def handler(event: dict, context) -> dict:
             # Extract out only artist name. Then add all artists into a list
             current_artists_names: list[str] = [artist['artist_name']['S'] for artist in response['Items']]
 
-            # Construct returning payload
-            payload = {
-            'current_artists_names': current_artists_names,
-            'current_artists_with_id': current_artists_with_id
-            }
-
             return {
                 'statusCode': 200,
                 'payload': {
