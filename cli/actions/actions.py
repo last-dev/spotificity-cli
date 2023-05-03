@@ -2,16 +2,16 @@ from exceptions.error_handling import FailedToRetrieveToken
 from ui.colors import Colors, print_colors, colorfy
 from botocore.exceptions import ClientError
 import boto3
-import sys
 import json
+import sys
 
 # Local memory storage of the current artists I am monitoring
 ARTIST_CACHE: list[dict] = []
 
 def request_token() -> str:
     """
-    Invoke Lambda function that sends a POST request to Spotify `Token` 
-    API to get an access token. Then returns it back to the CLI client
+    Invoke Lambda function that fetches an access token from the Spotify 
+    `/token/` API. 
     """    
     
     lambda_name = 'GetAccessTokenHandler'
@@ -23,23 +23,21 @@ def request_token() -> str:
             InvocationType='RequestResponse'
         )
     except ClientError as err:
-        print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-        print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-        sys.exit()
+        print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+        raise
     except Exception as err:
-        print(f'\n\tOther error occurred: \n\t{err}')
+        print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+        raise
     else:
         
         # Convert botocore.response.StreamingBody object to dict
         returned_json: dict = json.load(response['Payload'])
         
         # Raise exception if payload is None, otherwise return access token
-        if returned_json['payload']['access_token'] is not None:
-            return returned_json['payload']['access_token']
-        else:
+        if returned_json.get('access_token') is None:
             raise FailedToRetrieveToken
-        
-    return ''
+        else:
+            return returned_json['access_token']
 
 
 def list_artists(continue_prompt=False) -> None:
@@ -48,7 +46,7 @@ def list_artists(continue_prompt=False) -> None:
     """
 
     global ARTIST_CACHE
-    lambda_name = 'GetArtistsHandler'
+    lambda_name = 'FetchArtistsHandler'
 
     # Use cached list of artists, otherwise, invoke lambda to get fresh data
     if len(ARTIST_CACHE) > 0:
@@ -65,9 +63,10 @@ def list_artists(continue_prompt=False) -> None:
         except ClientError as err:
             print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
             print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-            sys.exit()
+            raise
         except Exception as err:
             print(f'\n\tOther error occurred: \n\t{err}')
+            raise
         else:
 
             # Convert botocore.response.StreamingBody object to dict
@@ -107,9 +106,10 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str]:
     except ClientError as err:
         print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
         print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-        sys.exit()
+        raise
     except Exception as err:
         print(f'\n\tOther error occurred: \n\t{err}')
+        raise
     else:
         
         # Convert botocore.response.StreamingBody object to dict
@@ -198,9 +198,10 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
             except ClientError as err:
                 print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
                 print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-                sys.exit()
+                raise
             except Exception as err:
                 print(f'\n\tOther error occurred: \n\t{err}')
+                raise
             else:
 
                 # Convert botocore.response.StreamingBody object to dict
@@ -254,11 +255,12 @@ def remove_artist(continue_prompt=False) -> None:
             Payload=payload.encode()
             )
     except ClientError as err:
-                print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-                print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-                sys.exit()
+        print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
+        print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
+        raise
     except Exception as err:
         print(f'\n\tOther error occurred: \n\t{err}')
+        raise
     else:
         
         # Convert botocore.response.StreamingBody object to dict
