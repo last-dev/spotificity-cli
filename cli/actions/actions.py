@@ -2,13 +2,15 @@ from exceptions.error_handling import (
     FailedToRetrieveToken, 
     FailedToRetrieveMonitoredArtists,
     FailedToRetrieveListOfMatchesWithIDs,
-    ExceptionDuringLambdaExecution
+    ExceptionDuringLambdaExecution,
+    FailedToAddArtistToTable,
+    FailedToRemoveArtistFromTable
 )
 from ui.colors import Colors, print_colors, colorfy
 from botocore.exceptions import ClientError
+from random import choice
 import boto3
 import json
-import sys
 
 # Local memory storage of the current artists I am monitoring
 CACHED_ARTIST_LIST: list = []
@@ -46,7 +48,7 @@ def request_token() -> str:
             return returned_json['access_token']
 
 
-def get_valid_user_input(prompt: str, valid_choices: list) -> str:
+def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
     """
     Instead of using nested while loops, this function uses a single while loop
     to prompt the user for input until they enter a valid selection. 
@@ -70,11 +72,11 @@ def list_artists(continue_prompt=False) -> None:
     # Check if either the cache has items or the `IS_CACHE_EMPTY` flag is set to True
     # If neither is true, invoke Lambda to fetch fresh data
     if len(CACHED_ARTIST_LIST) > 0 or IS_CACHE_EMPTY:
-        if len(CACHED_ARTIST_LIST) > 0:
+        if CACHED_ARTIST_LIST:
             for index, artist in enumerate(CACHED_ARTIST_LIST, start=1):
                 print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, str(index))}] {artist["artist_name"]}')
         else:
-            print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
+            print_colors(Colors.YELLOW, '\n\tNo artists currently being monitored.')
     else: 
         
         # Invoke Lambda to fetch fresh data
@@ -105,9 +107,9 @@ def list_artists(continue_prompt=False) -> None:
             
            # Print out list of artists
             elif returned_payload['status_code'] == 204:
-                print_colors(Colors.RED, '\n\tNo artists currently being monitored.')
+                print_colors(Colors.YELLOW, '\n\tNo artists currently being monitored.')
                 
-                # Update cache to be an empty list
+                # Update cache to be an empty list  
                 CACHED_ARTIST_LIST = []
                 IS_CACHE_EMPTY = True
             else:
@@ -164,7 +166,6 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
         elif returned_payload['payload'].get('error'):
             raise FailedToRetrieveListOfMatchesWithIDs(returned_payload['payload']['error'])
 
-        # Give user the most likely artist they were looking for 
         first_artist_guess = {
             'artist_id': returned_payload['payload']['artistSearchResultsList'][0]['id'],
             'artist_name': returned_payload['payload']['artistSearchResultsList'][0]['name']
@@ -198,6 +199,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
                 else:
                     genres_str = 'N/A'
                 
+                # Print out genres for each choice to help add context to user
                 print(f'\tGenre(s): {genres_str}')
                     
             # Prompt user for artist choice again
@@ -264,25 +266,27 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
                     Payload=payload.encode()
                 )    
             except ClientError as err:
-                print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-                print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
+                print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
                 raise
             except Exception as err:
-                print(f'\n\tOther error occurred: \n\t{err}')
+                print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
                 raise
             else:
 
                 # Convert botocore.response.StreamingBody object to dict
                 returned_payload: dict = json.load(response['Payload'])
 
-                if returned_payload['statusCode'] != 200:
-                    print('Something went wrong. Please try again.')
-                    break
-                else: 
-                    
+                # Catch any errors that occurred during `GetArtist-IDHandler` execution
+                if returned_payload.get('errorMessage'):
+                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
+
+                # Catch any errors that occurred during PUT request on the DynamoDB table.
+                elif returned_payload['payload'].get('error'):
+                    raise FailedToAddArtistToTable(returned_payload['payload']['error'])
+                else:
+
                     # Update cache with new addition
                     CACHED_ARTIST_LIST.append(artist)
-                
                     print(f'\n\tYou are now monitoring for {colorfy(Colors.LIGHT_GREEN, artist_name)}\'s new music!')
                     break
                 
@@ -295,71 +299,105 @@ def remove_artist(continue_prompt=False) -> None:
     """
     
     global CACHED_ARTIST_LIST
-
-    # Ask which artist the user would like to remove
-    list_artists()
-    while True:
-        try:
-            choice = int((input("\nWhich artist would you like to remove? Make a selection:\n> ")))
-            if choice in list(range(1, len(CACHED_ARTIST_LIST) + 1)):
-                break
-            else:
-                raise ValueError
-        except ValueError:
-            print_colors(Colors.YELLOW, "\n\tPlease enter a valid selection.")
-
-    # Invoke a lambda function that performs a DELETE request against a DynamoDB table.
     lambda_name = 'RemoveArtistsHandler'
-    payload = json.dumps({
-        'artist_id': CACHED_ARTIST_LIST[choice - 1]['artist_id'],
-        'artist_name': CACHED_ARTIST_LIST[choice - 1]['artist_name']
-    })
 
-    try:
-        lambda_ = boto3.client('lambda')
-        response = lambda_.invoke(
-            FunctionName=lambda_name,
-            InvocationType='RequestResponse',
-            Payload=payload.encode()
-            )
-    except ClientError as err:
-        print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-        print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
-        raise
-    except Exception as err:
-        print(f'\n\tOther error occurred: \n\t{err}')
-        raise
-    else:
-        
-        # Convert botocore.response.StreamingBody object to dict
-        returned_payload: dict = json.load(response['Payload'])
-        
-        if returned_payload['statusCode'] != 200:
-            print('Something went wrong. Please try again.')
-        else:
+    # If there are currently no artists to remove, then exit the function
+    list_artists()
+    if not CACHED_ARTIST_LIST:
+        print_colors(Colors.YELLOW, "\n\tThere are no artists to remove!")
+        menu_loop_prompt(continue_prompt)
+        return
+
+    # Otherwise, ask them which artist they would like to remove
+    go_back_choices = ['b', 'back']
+    user_choice = get_valid_user_input(
+        prompt='\nWhich artist would you like to remove? Make a selection: (or enter `b` or `back` to return to main menu)\n> ',
+        valid_choices=[
+            str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
+        ] + go_back_choices
+    )
+
+    for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1):
+        if user_choice in go_back_choices:
+            return
+        elif int(user_choice) == choice_index:
             
-            # Update cache by removing artist
-            print(f"\n\tRemoved {colorfy(Colors.LIGHT_GREEN, CACHED_ARTIST_LIST[choice - 1]['artist_name'])} from list!")
-            CACHED_ARTIST_LIST.pop(choice - 1)
-            
+            # Prep payload to be sent to Lambda function
+            payload = json.dumps({
+                'artist_id': CACHED_ARTIST_LIST[int(user_choice) - 1]['artist_id'],
+                'artist_name': CACHED_ARTIST_LIST[int(user_choice) - 1]['artist_name']
+            })
+
+            # Invoke a lambda function that performs a DELETE request on the DynamoDB table.
+            try:
+                lambda_ = boto3.client('lambda')
+                response = lambda_.invoke(
+                    FunctionName=lambda_name,
+                    InvocationType='RequestResponse',
+                    Payload=payload.encode()
+                    )
+            except ClientError as err:
+                print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+                raise
+            except Exception as err:
+                print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+                raise
+            else:
+                
+                # Convert botocore.response.StreamingBody object to dict
+                returned_payload: dict = json.load(response['Payload'])
+
+                # Catch any errors that occurred during `RemoveArtistsHandler` execution
+                if returned_payload.get('errorMessage'):
+                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
+
+                # Catch any errors that occurred during DELETE request on the DynamoDB table.
+                elif returned_payload['payload'].get('error'):
+                    raise FailedToRemoveArtistFromTable(returned_payload['payload']['error'])
+                else:
+                    
+                    # Update cache by removing artist
+                    CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
+                    print(f"\n\tRemoved {colorfy(Colors.LIGHT_GREEN, artist['artist_name'])} from list!")
+
     menu_loop_prompt(continue_prompt)
-
+    
 
 def quit() -> None:
     """
-    Quits the application.
+    Quits the application with a custom exit message
     """
     
-    print(f"\n\t{colorfy(Colors.RED, 'Quitting App!')}")
-    sys.exit()
+    goodbye_list = [
+        'goodbye',
+        "see ya\n'",
+        'bye bye',
+        'bye',
+        'au revoir',  # French
+        'adiós',  # Spanish
+        'auf Wiedersehen',  # German
+        'arrivederci',  # Italian
+    ]
+    print_colors(Colors.RED, f'\n\tQuitting App! {choice(goodbye_list).title()}!')
+    exit()
 
 
 def menu_loop_prompt(continue_prompt: bool) -> None:
     """
-    If True is passed in, user will be prompted to press ENTER to get back to main menu
+    If True is passed in, user will be prompted to continue to main menu.
+    Otherwise, app will quit
     """
+
+    quit_choices = ['q', 'quit', 'exit', 'done']
+    go_back_choices = ['b', 'back', '']
     
     if continue_prompt:
-        choice = input(f"\nPress {colorfy(Colors.LIGHT_GREEN, '[ENTER]')} to go back to main menu... (Or {colorfy(Colors.YELLOW, 'q')} to quit app)\n> ")
-        if choice.lower() == 'q':
+        user_choice = get_valid_user_input(
+            prompt=f"\nPress {colorfy(Colors.LIGHT_GREEN, '[ENTER]')} to go back to main menu... (Or enter {colorfy(Colors.YELLOW, 'quit')} to quit app)\n> ",
+            valid_choices=(quit_choices + go_back_choices)
+        )
+
+        if user_choice in quit_choices:
             quit() 
+        elif user_choice in go_back_choices:
+            return
