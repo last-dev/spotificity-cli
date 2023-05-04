@@ -36,7 +36,7 @@ class SpotifyOperatorsConstruct(Construct):
             code=lambda_.Code.from_asset('lambda_functions/GetAccessTokenHandler'),
             handler='get_access_token.handler',
             function_name='GetAccessTokenHandler',
-            description=f'Calls Spotify\'s "/token" API endpoint to get an access token.',
+            description=f'Calls Spotify\'s "/token/" API endpoint to get an access token.',
             layers=[_requests_layer]
         )
         

@@ -80,14 +80,14 @@ def handler(event: dict, context) -> dict:
     
 def request_token() -> str:
     """
-    Invoke Lambda function that sends a POST request to Spotify `Token` 
-    API to get an access token. 
+    Invoke Lambda function that fetches an access token from the Spotify 
+    `/token/` API. 
     """    
     
     lambda_name = os.getenv('GET_ACCESS_TOKEN_LAMBDA')
     
     try:
-        print('Initiating POST request to Spotify\'s Token API...')        
+        print('Invoking Lambda that will request an access token from Spotify...')        
         
         lambda_ = boto3.client('lambda')
         response: dict = lambda_.invoke(
@@ -95,20 +95,25 @@ def request_token() -> str:
             InvocationType='RequestResponse'
         )
     except ClientError as err:
-        print(f'\nClient Error Message: \n\t{err.response["Error"]["Message"]}')
-        print(f'Client Error Code: \n\t{err.response["Error"]["Code"]}')
+        print(f'Client Error Message: {err.response["Error"]["Message"]}')
+        print(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
     except Exception as err:
-        print(f'\n\tOther error occurred: \n\t{err}')
+        print(f'Other error occurred: {err}')
         raise
     else:
-        print('Successfully received access token from Spotify\'s Token API.')
+        print('Parsing returned payload...')
         
         # Convert botocore.response.StreamingBody object to dict
         returned_json: dict = json.load(response['Payload'])
         
-        return returned_json['payload']['access_token']
-     
+        # Raise exception if payload is None, otherwise return access token
+        if returned_json.get('access_token') is None:
+            raise Exception('Failed to retrieve access token.')
+        else:
+            print('Successfully received access token from Spotify\'s Token API.')
+            return returned_json['access_token']
+    
 def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dict:
     """
     Queries the Spotify API to return the last album released by the
@@ -142,9 +147,16 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
         print(f'Other error occurred: {err}')
         raise
     else:
-        print('Parsing JSON...')
-        
+        print('Parsing returned payload...')
         album_search_results: dict = response.json()
+
+        # Catch any errors that may occur when searching for the last album
+        if album_search_results.get('error'):
+            print(f'Error occurred: {album_search_results["error"]}')
+            raise Exception(f'Error occurred: {album_search_results["error"]}')
+        elif len(album_search_results['items']) == 0:
+            print(f'No albums found for {artist_name}.')
+            raise Exception('No albums found')
         
         # Extract out the last album's details
         last_album: dict = album_search_results['items'][0]
@@ -191,10 +203,19 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
         print(f'Other error occurred: {err}')
         raise
     else:
-        print('Parsing JSON...')
+        print('Parsing returned payload...')
+        single_search_results: dict = response.json()
+
+        # Catch any errors that may occur when searching for the last single
+        if single_search_results.get('error'):
+            print(f'Error occurred: {single_search_results["error"]}')
+            raise Exception(f'Error occurred: {single_search_results["error"]}')
+        elif len(single_search_results['items']) == 0:
+            print(f'No singles found for {artist_name}.')
+            raise Exception('No singles found')
         
         # Extract out the last single's details
-        last_single: dict = response.json()['items'][0]
+        last_single: dict = single_search_results['items'][0]
         last_single_artists: list[str] = [artist['name'] for artist in last_single['artists']]
         
         print('Successfully retrieved last single details.')
