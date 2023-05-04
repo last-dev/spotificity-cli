@@ -204,7 +204,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
                     
             # Prompt user for artist choice again
             user_choice = get_valid_user_input(
-                prompt=f'\nWhich artist were you looking for? Select the number. (or enter `b` or `back` to return to search prompt)\n> ',
+                prompt=f'\nWhich artist were you looking for? Select the number. (or enter {colorfy(Colors.YELLOW, "`back`")} to return to search prompt)\n> ',
                 valid_choices=[
                     str(option_index) for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1)
                 ] + go_back_choices
@@ -311,7 +311,7 @@ def remove_artist(continue_prompt=False) -> None:
     # Otherwise, ask them which artist they would like to remove
     go_back_choices = ['b', 'back']
     user_choice = get_valid_user_input(
-        prompt='\nWhich artist would you like to remove? Make a selection: (or enter `b` or `back` to return to main menu)\n> ',
+        prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {colorfy(Colors.YELLOW, "`back`")} to return to main menu)\n> ',
         valid_choices=[
             str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
         ] + go_back_choices
