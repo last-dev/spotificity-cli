@@ -370,7 +370,7 @@ def quit() -> None:
     
     goodbye_list = [
         'goodbye',
-        "see ya\n'",
+        "see ya\'",
         'bye bye',
         'bye',
         'au revoir',  # French
