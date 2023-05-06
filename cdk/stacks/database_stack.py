@@ -2,8 +2,7 @@ from constructs import Construct
 from aws_cdk import (
     Stack,
     aws_dynamodb as ddb,
-    RemovalPolicy,
-    CfnOutput
+    RemovalPolicy
 )
 
 class DatabaseStack(Stack):    
