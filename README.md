@@ -17,13 +17,12 @@ Currently, I can view the artists in the table, add new artists to the list, or 
 
 My ever changing todo list is:
 
-- [x] Start adding unit tests for current stage of application.
 - [x] Create Lambda function that fetches artist's last single (with metadata), last album (with metadata), and ~~last 3 songs they were featured on~~. (It turns out Spotify does not have an easy way to pull tracks artist is only featured on)
 - [x] Activate DynamoDB stream that triggers `GetLatestMusic` Lambda when new artist is added to table. (Decided against step function)
 - [] Introduce better logging. Combing over my CloudWatch logs right now is... interesting.
 - [] Optimize CLI to reduce latency between actions. More in-memory caching? Asynchronous functions for concurrency?
 - [] Implement AWS SNS functionality.
-- [] Implement Cloudwatch Event that will trigger a Lambda every so often (TBD) to check for new music. This will then publish updates to the SNS topic.
+- [] Implement EventBridge Rule that will trigger a Lambda every so often (TBD) to check for new music. This will then publish updates to the SNS topic.
 - [] Create simple in-browser frontend where I can view and interact with my table.
 
 ## **Development**
