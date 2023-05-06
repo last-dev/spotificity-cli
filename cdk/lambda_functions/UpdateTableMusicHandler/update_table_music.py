@@ -68,9 +68,7 @@ def handler(event: dict, context) -> dict:
         print(f'Other Error Occurred: {err}')
         raise
     else: 
-        print('PUT request successful.')
-        
-        # TODO: Add logic to compare old and new values to see if any attributes changed to prepare SNS message
+        print(f'PUT request successful. {artist_name}\'s latest releases have been updated in {table}.')
 
         return {
             'statusCode': 200,
