@@ -1,5 +1,5 @@
 """
-Custom construct for the Setter, Getter, and Deleter Lambda 
+Custom construct for the core Setter, Getter, and Deleter Lambda 
 functions for the DynamoDB table that stores the current 
 monitored artists.
 """
@@ -10,7 +10,7 @@ from aws_cdk import (
     aws_dynamodb as ddb
 )
 
-class TableManipulatorsConstruct(Construct):  
+class CoreTableOperatorsConstruct(Construct):  
     
     @property
     def update_table_music_lambda(self) -> lambda_.Function:
@@ -25,7 +25,7 @@ class TableManipulatorsConstruct(Construct):
             self, 'FetchArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/FetchArtistsHandler'),
-            handler='scan_table.handler',
+            handler='list_artists.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
             },
@@ -38,7 +38,7 @@ class TableManipulatorsConstruct(Construct):
             self, 'AddArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/AddArtistsHandler'),
-            handler='put_to_table.handler',
+            handler='add_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
             },
@@ -51,7 +51,7 @@ class TableManipulatorsConstruct(Construct):
             self, 'RemoveArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/RemoveArtistsHandler'),
-            handler='remove_from_table.handler',
+            handler='remove_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
             },

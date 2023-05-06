@@ -1,5 +1,5 @@
 """
-Custom construct for the resources that will interact with
+Custom construct for core resources that will interact with
 the Spotify API. 
 """
 
@@ -12,7 +12,7 @@ from aws_cdk import (
     Fn
 )
 
-class SpotifyOperatorsConstruct(Construct):
+class CoreSpotifyOperatorsConstruct(Construct):
     def __init__(self, scope: Construct, id: str, 
                  artist_table_arn: str, 
                  artist_table_stream_arn: str, 
