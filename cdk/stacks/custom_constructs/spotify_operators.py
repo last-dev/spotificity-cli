@@ -17,17 +17,9 @@ class CoreSpotifyOperatorsConstruct(Construct):
                  artist_table_arn: str, 
                  artist_table_stream_arn: str, 
                  update_table_music_lambda: lambda_.Function, 
+                 requests_layer: lambda_.LayerVersion, 
                  **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
-        
-        # Lambda layer that bundles `requests` module 
-        _requests_layer = lambda_.LayerVersion(
-            self, 'RequestsLayer',
-            code=lambda_.Code.from_asset('lambda_layers/requests_v2-28-2.zip'),
-            layer_version_name='Requests_v2-28-2',
-            description='Bundles the "requests" module.',
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_10]
-        )
         
         # Spotify access token 'getter' Lambda Function
         _get_access_token_lambda = lambda_.Function(
@@ -37,7 +29,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
             handler='get_access_token.handler',
             function_name='GetAccessTokenHandler',
             description=f'Calls Spotify\'s "/token/" API endpoint to get an access token.',
-            layers=[_requests_layer]
+            layers=[requests_layer]
         )
         
         # Spotify artist_id 'getter' Lambda Function
@@ -48,7 +40,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
             handler='get_artist_id.handler',
             function_name='GetArtist-IDHandler',
             description=f'Queries the Spotify "/search" API endpoint for the artist ID.',
-            layers=[_requests_layer]
+            layers=[requests_layer]
         )
         
         # Spotify artist's latest music 'getter' Lambda Function
@@ -59,7 +51,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
             handler='get_latest_music.handler',
             function_name='GetLatestMusicHandler',
             description='Queries a series of Spotify API endpoints for the artist\'s latest music.',
-            layers=[_requests_layer],
+            layers=[requests_layer],
             environment={
                 'GET_ACCESS_TOKEN_LAMBDA': _get_access_token_lambda.function_name,
                 'UPDATE_TABLE_MUSIC_LAMBDA': update_table_music_lambda.function_name
