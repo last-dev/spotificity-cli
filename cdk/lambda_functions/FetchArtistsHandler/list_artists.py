@@ -8,7 +8,6 @@ def handler(event: dict, context) -> dict:
     """
 
     try:
-        # Create a DynamoDB client
         ddb = boto3.client('dynamodb')
         table = os.getenv('ARTIST_TABLE_NAME')
         print(f'Sending scan request to {table}...')
@@ -43,7 +42,7 @@ def handler(event: dict, context) -> dict:
                 'status_code': 204, 
                 'payload': {
                     'artists': []
-                    }
+                }
             }
         else:
             print('Successfully received list of artists. Returning list to client.')
