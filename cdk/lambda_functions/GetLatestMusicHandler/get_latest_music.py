@@ -58,7 +58,6 @@ def handler(event: dict, context) -> dict:
             except ClientError as err:
                 print(f'Client Error Message: {err.response["Error"]["Message"]}')
                 print(f'Client Error Code: {err.response["Error"]["Code"]}')
-                print(f'HTTP Code: {err.response["ResponseMetadata"]["HTTPStatusCode"]}')
                 raise
             except Exception as err:
                 print(f'Other Error Occurred: {err}')
