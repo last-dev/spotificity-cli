@@ -1,5 +1,6 @@
 from stacks.custom_constructs.table_operators import CoreTableOperatorsConstruct
 from stacks.custom_constructs.spotify_operators import CoreSpotifyOperatorsConstruct
+from stacks.custom_constructs.notifier import NotifierConstruct
 from constructs import Construct
 from aws_cdk import (
     Stack,
@@ -33,5 +34,12 @@ class BackendStack(Stack):
             artist_table_arn=monitored_artist_table.table_arn,
             artist_table_stream_arn=monitored_artist_table.table_stream_arn,  # type: ignore
             update_table_music_lambda=table_operators.update_table_music_lambda,
+            requests_layer=requests_layer
+        )
+
+        # Custom construct for the step function workflow that will be triggered by an EventBridge rate expression
+        notify_feature = NotifierConstruct(
+            self, 'NotifierConstruct',
+            artist_table=monitored_artist_table,
             requests_layer=requests_layer
         )
