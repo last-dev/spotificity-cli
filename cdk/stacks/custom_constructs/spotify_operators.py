@@ -13,6 +13,11 @@ from aws_cdk import (
 )
 
 class CoreSpotifyOperatorsConstruct(Construct):
+
+    @property
+    def get_access_token_lambda(self) -> lambda_.Function:
+        return self._get_access_token_lambda
+
     def __init__(self, scope: Construct, id: str, 
                  artist_table_arn: str, 
                  artist_table_stream_arn: str, 
@@ -22,7 +27,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         super().__init__(scope, id, **kwargs)
         
         # Spotify access token 'getter' Lambda Function
-        _get_access_token_lambda = lambda_.Function(
+        self._get_access_token_lambda = lambda_.Function(
             self, 'GetAccessToken',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/GetAccessTokenHandler'),
@@ -53,7 +58,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
             description='Queries a series of Spotify API endpoints for the artist\'s latest music.',
             layers=[requests_layer],
             environment={
-                'GET_ACCESS_TOKEN_LAMBDA': _get_access_token_lambda.function_name,
+                'GET_ACCESS_TOKEN_LAMBDA': self._get_access_token_lambda.function_name,
                 'UPDATE_TABLE_MUSIC_LAMBDA': update_table_music_lambda.function_name
             }
         )     
@@ -80,10 +85,10 @@ class CoreSpotifyOperatorsConstruct(Construct):
         )
         
         # Give 'GetLatestMusicHandler' permission to invoke 'GetAccessTokenHandler'
-        _get_access_token_lambda.grant_invoke(_get_latest_music_lambda)  
+        self._get_access_token_lambda.grant_invoke(_get_latest_music_lambda)  
         
         # Give 'GetAccessTokenHandler' Lambda permissions to read secret
-        __spotify_secrets.grant_read(_get_access_token_lambda)
+        __spotify_secrets.grant_read(self._get_access_token_lambda)
         
         # Give 'LatestMusicGetter' Lambda permissions to invoke 'UpdateTableMusicLambda'
         update_table_music_lambda.grant_invoke(_get_latest_music_lambda)
