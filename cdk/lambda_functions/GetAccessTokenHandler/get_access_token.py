@@ -21,12 +21,12 @@ def handler(event, context) -> dict:
             SecretId='SpotifySecrets'
         )
     except ClientError as err:
-      print(f'Client Error Message: {err.response["Error"]["Message"]}')
-      print(f'Client Error Code: {err.response["Error"]["Code"]}')
-      raise
+        print(f'Client Error Message: {err.response["Error"]["Message"]}')
+        print(f'Client Error Code: {err.response["Error"]["Code"]}')
+        raise
     except Exception as err:
-      print(f'Other Error Occurred: {err}')
-      raise
+        print(f'Other Error Occurred: {err}')
+        raise
     else: 
         print('Successfully retrieved Spotify client credentials from AWS Secrets Manager')
         
