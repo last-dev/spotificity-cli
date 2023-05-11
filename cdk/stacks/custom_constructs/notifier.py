@@ -15,7 +15,7 @@ from aws_cdk import (
 )
 
 class NotifierConstruct(Construct):
-    def __init__(self, scope: Construct, id: str, artist_table: ddb.Table, requests_layer: lambda_.LayerVersion, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, artist_table: ddb.Table, requests_layer: lambda_.LayerVersion, access_token_lambda: lambda_.Function, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
    
         # Lambda to pull the current list of artists being monitored
@@ -31,24 +31,57 @@ class NotifierConstruct(Construct):
             }
         )
 
-        # Tasks within our Step Function workflow
-        _scan_task = task.LambdaInvoke(
-            self, 'InvokeLambdaStep1',
-            lambda_function=_fetch_artists_lambda,  # type: ignore
+        # Lambda to fetch the latest music released by any of the artists being monitored
+        _fetch_music_lambda = lambda_.Function(
+            self, 'GetLatestMusicForNotifierHandler',
+            function_name='GetLatestMusicForNotifierHandler',
+            runtime=lambda_.Runtime.PYTHON_3_10,
+            code=lambda_.Code.from_asset('lambda_functions/GetLatestMusicForNotifierHandler'),
+            handler='get_latest_music_for_notifier.handler',
+            layers=[requests_layer],
+        )
+
+        """ Tasks within our Step Function workflow """
+        _fetch_access_token_task = task.LambdaInvoke(
+            self, 'FetchAccessToken',
+            lambda_function=access_token_lambda,  # type: ignore
+            output_path='$.access_token',
             payload_response_only=True
         )
 
-        # _fetch_latest_music_task = task.LambdaInvoke(
-        #     self, 'InvokeLambdaStep2',
-        #     lambda_function=_fetch_music_lambda,  # type: ignore
-        #     payload_response_only=True
-        # )
+        _scan_task = task.LambdaInvoke(
+            self, 'ScanArtistTable',
+            lambda_function=_fetch_artists_lambda,  # type: ignore
+            output_path='$.payload',
+            payload_response_only=True
+        )
+
+        # TODO: If _scan_task returns with a status code of 204, we immediately publish SNS message to the topic.
+        # Otherwise, we invoke the lambda to fetch the latest music released all artists 
+        _choice_state = stepfunction.Choice(self, 'Artists or not...')
+
+        """ Define states for choice state """
+        _fetch_latest_music_task = task.LambdaInvoke(
+            self, 'FetchLatestMusic',
+            lambda_function=_fetch_music_lambda,  # type: ignore
+            payload_response_only=True
+        )
+
+        _no_artists_publish_task = task.SnsPublish()
+
+        """ Add conditions to the choice state """
+        _choice_state.when(stepfunction.Condition.number_equals('$.payload.status_code', 204), _no_artists_publish_task)
+        _choice_state.otherwise(_fetch_latest_music_task)
+
+        """ Connect tasks """
+        _fetch_access_token_task.next(_scan_task)
+        _scan_task.next(_choice_state)
 
         # StateMachine for our entire step function workflow
         _state_machine = stepfunction.StateMachine(
             self, 'NotifierStepFunction',
             state_machine_name='NotifierStepFunction',
-            definition=_scan_task  # The initial task to invoke
+            definition=_fetch_access_token_task  # The initial task to invoke
         )
 
         # EventBridge rule to trigger Lambda StepFunction routine every week 
@@ -59,3 +92,6 @@ class NotifierConstruct(Construct):
         #     description='Triggers Lambda every week to fetch the latest musical releases from my list of artists.',
         #     targets=[_state_machine] 
         # )
+
+        # Grant the Lambda function to read from the Artist table
+        artist_table.grant_read_data(_fetch_artists_lambda)
