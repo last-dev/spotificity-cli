@@ -41,5 +41,6 @@ class BackendStack(Stack):
         notify_feature = NotifierConstruct(
             self, 'NotifierConstruct',
             artist_table=monitored_artist_table,
-            requests_layer=requests_layer
+            requests_layer=requests_layer,
+            access_token_lambda=spotify_operators.get_access_token_lambda
         )
