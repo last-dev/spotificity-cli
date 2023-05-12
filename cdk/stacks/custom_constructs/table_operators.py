@@ -24,7 +24,7 @@ class CoreTableOperatorsConstruct(Construct):
         _fetch_artists_lambda = lambda_.Function(
             self, 'FetchArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/FetchArtistsHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
             handler='list_artists.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -37,7 +37,7 @@ class CoreTableOperatorsConstruct(Construct):
         _add_artist_lambda = lambda_.Function(
             self, 'AddArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/AddArtistsHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
             handler='add_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -50,7 +50,7 @@ class CoreTableOperatorsConstruct(Construct):
         _remove_artist_lambda = lambda_.Function(
             self, 'RemoveArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/RemoveArtistsHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
             handler='remove_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -63,7 +63,7 @@ class CoreTableOperatorsConstruct(Construct):
         self._update_table_music_lambda = lambda_.Function(
             self, 'UpdateTableMusicHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/UpdateTableMusicHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
             handler='update_table_music.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
