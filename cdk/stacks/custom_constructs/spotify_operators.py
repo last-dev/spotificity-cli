@@ -13,55 +13,52 @@ from aws_cdk import (
 )
 
 class CoreSpotifyOperatorsConstruct(Construct):
+
+    @property
+    def get_access_token_lambda(self) -> lambda_.Function:
+        return self._get_access_token_lambda
+
     def __init__(self, scope: Construct, id: str, 
                  artist_table_arn: str, 
                  artist_table_stream_arn: str, 
                  update_table_music_lambda: lambda_.Function, 
+                 requests_layer: lambda_.LayerVersion, 
                  **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         
-        # Lambda layer that bundles `requests` module 
-        _requests_layer = lambda_.LayerVersion(
-            self, 'RequestsLayer',
-            code=lambda_.Code.from_asset('lambda_layers/requests_v2-28-2.zip'),
-            layer_version_name='Requests_v2-28-2',
-            description='Bundles the "requests" module.',
-            compatible_runtimes=[lambda_.Runtime.PYTHON_3_10]
-        )
-        
         # Spotify access token 'getter' Lambda Function
-        _get_access_token_lambda = lambda_.Function(
+        self._get_access_token_lambda = lambda_.Function(
             self, 'GetAccessToken',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/GetAccessTokenHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
             handler='get_access_token.handler',
             function_name='GetAccessTokenHandler',
             description=f'Calls Spotify\'s "/token/" API endpoint to get an access token.',
-            layers=[_requests_layer]
+            layers=[requests_layer]
         )
         
         # Spotify artist_id 'getter' Lambda Function
         _get_artist_id_lambda = lambda_.Function(
             self, 'GetArtistID',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/GetArtist-IDHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
             handler='get_artist_id.handler',
             function_name='GetArtist-IDHandler',
             description=f'Queries the Spotify "/search" API endpoint for the artist ID.',
-            layers=[_requests_layer]
+            layers=[requests_layer]
         )
         
         # Spotify artist's latest music 'getter' Lambda Function
         _get_latest_music_lambda = lambda_.Function(
             self, 'GetLatestMusic',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/GetLatestMusicHandler'),
+            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
             handler='get_latest_music.handler',
             function_name='GetLatestMusicHandler',
             description='Queries a series of Spotify API endpoints for the artist\'s latest music.',
-            layers=[_requests_layer],
+            layers=[requests_layer],
             environment={
-                'GET_ACCESS_TOKEN_LAMBDA': _get_access_token_lambda.function_name,
+                'GET_ACCESS_TOKEN_LAMBDA': self._get_access_token_lambda.function_name,
                 'UPDATE_TABLE_MUSIC_LAMBDA': update_table_music_lambda.function_name
             }
         )     
@@ -88,10 +85,10 @@ class CoreSpotifyOperatorsConstruct(Construct):
         )
         
         # Give 'GetLatestMusicHandler' permission to invoke 'GetAccessTokenHandler'
-        _get_access_token_lambda.grant_invoke(_get_latest_music_lambda)  
+        self._get_access_token_lambda.grant_invoke(_get_latest_music_lambda)  
         
         # Give 'GetAccessTokenHandler' Lambda permissions to read secret
-        __spotify_secrets.grant_read(_get_access_token_lambda)
+        __spotify_secrets.grant_read(self._get_access_token_lambda)
         
         # Give 'LatestMusicGetter' Lambda permissions to invoke 'UpdateTableMusicLambda'
         update_table_music_lambda.grant_invoke(_get_latest_music_lambda)
