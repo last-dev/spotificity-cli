@@ -54,9 +54,9 @@ def handler(event: dict, context) -> dict:
             current_artists_names: list[str] = [artist['artist_name']['S'] for artist in response['Items']]
 
             return {
-                'status_code': 200,
                 'payload': {
-                    'access_token': event['access_token'],
+                    'status_code': 200,
+                    'access_token': event,
                     'artists': {
                         'current_artists_names': current_artists_names,
                         'current_artists_with_id': current_artists_with_id
