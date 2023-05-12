@@ -1,11 +1,13 @@
 
-# **Spotificity AWS CDK App**
+# **Spotificity (AWS CDK App)**
 
 ## **What is this? Why build it?**
 
-Once upon a time, I used to stay updated with the latest music releases from some of my favorite artists. Engaging in discussions and debates about new music with my close friends was a great pastime. Nowadays, my focus on studying and coding, particularly in the pursuit of building artifacts to present during interviews, has made it difficult for me to keep up.
+Once upon a time, I used to stay updated with the latest music releases from some of my favorite artists. Engaging in discussions and debates about new music with my close friends was a great pastime. Nowadays, my focus on studying and coding, has made it difficult for me to keep up.
 
-To address this, I have started to create a CRUD app that periodically queries Spotify using their API to obtain a list of the latest releases from selected artists and send me a text with any updates weekly.
+To address this, I have started to create a CRUD app that periodically queries Spotify using their API to obtain a list of the latest releases from select artists and send me an email with any updates every Sunday. 
+
+***"But Spotify already offers notifications for when an artist drops, what gives?"*** The reason I prefer receiving a notification every Sunday is that it allows me to plan around digesting the new music, as opposed to having to jump right on the notification when Spotify sends it.
 
 Since this application needs to be stateful, it presents an excellent opportunity for me to learn the inner workings of AWS cloud technologies by using the **AWS Cloud Development Kit (CDK)**.
 
@@ -17,12 +19,14 @@ Currently, I can view the artists in the table, add new artists to the list, or 
 
 My ever changing todo list is:
 
-- [x] Create Lambda function that fetches artist's last single (with metadata), last album (with metadata), and ~~last 3 songs they were featured on~~. (It turns out Spotify does not have an easy way to pull tracks artist is only featured on)
-- [x] Activate DynamoDB stream that triggers `GetLatestMusic` Lambda when new artist is added to table. (Decided against step function)
+- [x] ~~Create Lambda function that fetches artist's last single (with metadata), last album (with metadata), and last 3 songs they were featured on. (It turns out Spotify does not have an easy way to pull tracks artist is only featured on)~~
+- [x] ~~Activate DynamoDB stream that triggers `GetLatestMusic` Lambda when new artist is added to table. (Decided against step function)~~
+- [x] ~~Implement AWS SNS functionality.~~
+- [x] ~~Implement EventBridge Rule that will trigger a Step Function every so often (TBD) to check for new music. This will then publish updates to the SNS topic.~~
+- [] Continue to brainstorm how I can better layout my new music email.
+- [] Research if Apple has an API for the iTunes store so I can include a link to purchase any of the new music.
 - [] Introduce better logging. Combing over my CloudWatch logs right now is... interesting.
 - [] Optimize CLI to reduce latency between actions. More in-memory caching? Asynchronous functions for concurrency?
-- [] Implement AWS SNS functionality.
-- [] Implement EventBridge Rule that will trigger a Lambda every so often (TBD) to check for new music. This will then publish updates to the SNS topic.
 - [] Create simple in-browser frontend where I can view and interact with my table.
 
 ## **Development**
