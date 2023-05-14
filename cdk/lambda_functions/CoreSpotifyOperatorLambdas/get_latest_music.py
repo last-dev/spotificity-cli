@@ -154,8 +154,12 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
             print(f'Error occurred: {album_search_results["error"]}')
             raise Exception(f'Error occurred: {album_search_results["error"]}')
         elif len(album_search_results['items']) == 0:
-            print(f'No albums found for {artist_name}.')
-            raise Exception('No albums found')
+            print(f'No albums found for {artist_name}. Returning empty details.')
+            return {
+                'last_album_name': '',
+                'last_album_release_date': '',
+                'last_album_artists': []
+            }
         
         # Extract out the last album's details
         last_album: dict = album_search_results['items'][0]
@@ -210,8 +214,12 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
             print(f'Error occurred: {single_search_results["error"]}')
             raise Exception(f'Error occurred: {single_search_results["error"]}')
         elif len(single_search_results['items']) == 0:
-            print(f'No singles found for {artist_name}.')
-            raise Exception('No singles found')
+            print(f'No singles found for {artist_name}. Returning empty details.')
+            return {
+                'last_single_name': '',
+                'last_single_release_date': '',
+                'last_single_artists': []
+            }
         
         # Extract out the last single's details
         last_single: dict = single_search_results['items'][0]
