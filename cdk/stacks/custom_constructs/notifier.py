@@ -14,7 +14,8 @@ from aws_cdk import (
     aws_stepfunctions_tasks as task,
     aws_sns as sns,
     aws_secretsmanager as ssm,
-    aws_iam as iam
+    aws_iam as iam,
+    Duration
 )
 
 class NotifierConstruct(Construct):
@@ -58,6 +59,7 @@ class NotifierConstruct(Construct):
             description='Fetches the latest music released by any of the artists being monitored',
             function_name='GetLatestMusicForNotifierHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
+            timeout=Duration.seconds(15),
             code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
             handler='get_latest_music_for_notifier.handler',
             layers=[requests_layer],
