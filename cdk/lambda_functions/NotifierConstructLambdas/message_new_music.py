@@ -67,9 +67,9 @@ def send_email_with_new_music(event: list) -> None:
     # Format new music into a string
     email_list_of_strings: list[str] = []
     for index, artist in enumerate(event, start=1):
-        if artist["last_album_details"]['last_album_name']:
+        if artist.get('last_album_details'):
             email_list_of_strings.append(f'{index}. \n\t{artist["artist_name"]} dropped "{artist["last_album_details"]["last_album_name"]}" on {artist["last_album_details"]["last_album_release_date"]}.')
-        elif artist["last_single_details"]['last_single_name']:
+        elif artist.get('last_single_details'):
             email_list_of_strings.append(f'{index}. \n\t{artist["artist_name"]} dropped "{artist["last_single_details"]["last_single_name"]}" on {artist["last_single_details"]["last_single_release_date"]}.')
         
     # Join all strings together to create one long string for the email
