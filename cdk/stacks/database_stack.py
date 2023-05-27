@@ -24,7 +24,7 @@ class DatabaseStack(Stack):
             },
             stream=ddb.StreamViewType.NEW_IMAGE,  # Enable stream for lambda invocations
             encryption=ddb.TableEncryption.AWS_MANAGED,
-            removal_policy=RemovalPolicy.DESTROY
+            removal_policy=RemovalPolicy.RETAIN
         )
 
 
