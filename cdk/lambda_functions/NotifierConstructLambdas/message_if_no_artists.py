@@ -21,7 +21,7 @@ def handler(event, context) -> None:
         response = sns.publish(
             TopicArn=topic_arn,
             Subject='Spotificity: ❌ No Artists Found In List ❌',
-            Message='There are no artists currently being monitored. No new music to report!\n Please Spotificity CLI to add artists to the list.'
+            Message='There are no artists currently being monitored. No new music to report!\n Please run Spotificity CLI to add artists to the list.'
         )
     except ClientError as err:
         print(f'Client Error Message: {err.response["Error"]["Message"]}')
