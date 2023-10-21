@@ -59,7 +59,7 @@ class ApiGatewayConstruct(Construct):
         update_artist_resource = remove_artist_resource.add_resource('music')
         update_artist_resource.add_method('PUT', update_table_music_integration, authorization_type=api_gw.AuthorizationType.IAM)
         
-        # Give permissions to Lambdas to be invoked by API Gateway
+        # Give permissions to APIGateway's assumed IAM role to invoke lambdas
         fetch_artists_lambda.grant_invoke(api_gateway_role)
         add_artists_lambda.grant_invoke(api_gateway_role)
         remove_artists_lambda.grant_invoke(api_gateway_role)
