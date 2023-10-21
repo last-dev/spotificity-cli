@@ -19,7 +19,8 @@ class ApiGatewayConstruct(Construct):
                  update_table_music_lambda: lambda_.Function, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         
-        # Create an IAM Role for API Gateway to assume
+        # Create an IAM Role for API Gateway to assume. We'll use this to 
+        # allow API Gateway to invoke our Lambdas.
         api_gateway_role = iam.Role(
             self, 'ApiGatewayRole',
             assumed_by=iam.ServicePrincipal('apigateway.amazonaws.com')
@@ -38,22 +39,25 @@ class ApiGatewayConstruct(Construct):
         remove_artists_integration = api_gw.LambdaIntegration(remove_artists_lambda)  # type: ignore
         update_table_music_integration = api_gw.LambdaIntegration(update_table_music_lambda)  # type: ignore
         
-        # Define resources and methods for all CoreTableOperator Lambda functions
+        """
+        Define resources and methods for all CoreTableOperator Lambda functions.
+        Making sure that IAM Authentication is enabled for each Gateway method
+        """
         # GET /artist
         artist_resource = self.api.root.add_resource('artist')
-        artist_resource.add_method('GET', fetch_artists_integration)
+        artist_resource.add_method('GET', fetch_artists_integration, authorization_type=api_gw.AuthorizationType.IAM)
 
         # POST /artist
         add_artist_resource = artist_resource
-        add_artist_resource.add_method('POST', add_artists_integration)
+        add_artist_resource.add_method('POST', add_artists_integration, authorization_type=api_gw.AuthorizationType.IAM)
 
         # DELETE /artist/{artist_id}    
         remove_artist_resource = artist_resource.add_resource('{artist_id}')
-        remove_artist_resource.add_method('DELETE', remove_artists_integration)
+        remove_artist_resource.add_method('DELETE', remove_artists_integration, authorization_type=api_gw.AuthorizationType.IAM)
 
         # PUT /artist/{artist_id}/music
         update_artist_resource = remove_artist_resource.add_resource('music')
-        update_artist_resource.add_method('PUT', update_table_music_integration)
+        update_artist_resource.add_method('PUT', update_table_music_integration, authorization_type=api_gw.AuthorizationType.IAM)
         
         # Give permissions to Lambdas to be invoked by API Gateway
         fetch_artists_lambda.grant_invoke(api_gateway_role)
@@ -67,7 +71,6 @@ class ApiGatewayConstruct(Construct):
             value=self.api.url,
             description="Api Gateway Endpoint URL Export"
         )
-
 
         
         
