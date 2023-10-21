@@ -6,7 +6,7 @@ from exceptions.error_handling import (
     FailedToAddArtistToTable,
     FailedToRemoveArtistFromTable
 )
-from ui.colors import Colors, print_colors, colorfy
+from ui.colors import Style
 from botocore.exceptions import ClientError
 from random import choice
 import boto3
@@ -31,10 +31,10 @@ def request_token() -> str:
             InvocationType='RequestResponse'
         )
     except ClientError as err:
-        print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
         raise
     except Exception as err:
-        print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+        print(f'{Style.RED}Other error occurred: \n\n{err}')
         raise
     else:
         
@@ -58,7 +58,7 @@ def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
         if user_input in valid_choices:
             return user_input
         else:
-            print_colors(Colors.YELLOW, '\n\tPlease enter a valid selection.')
+            print(f'{Style.YELLOW}\n\tPlease enter a valid selection.{Style.RESET}')
 
 
 def list_artists(continue_prompt=False) -> None:
@@ -74,9 +74,9 @@ def list_artists(continue_prompt=False) -> None:
     if len(CACHED_ARTIST_LIST) > 0 or IS_CACHE_EMPTY:
         if CACHED_ARTIST_LIST:
             for index, artist in enumerate(CACHED_ARTIST_LIST, start=1):
-                print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, str(index))}] {artist["artist_name"]}')
+                print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist["artist_name"]}')
         else:
-            print_colors(Colors.YELLOW, '\n\tNo artists currently being monitored.')
+            print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
     else: 
         
         # Invoke Lambda to fetch fresh data
@@ -87,10 +87,10 @@ def list_artists(continue_prompt=False) -> None:
                 InvocationType='RequestResponse'
             )    
         except ClientError as err:
-            print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+            print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
             raise
         except Exception as err:
-            print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+            print(f'{Style.RED}Other error occurred: \n\n{err}')
             raise
         else:
 
@@ -107,7 +107,7 @@ def list_artists(continue_prompt=False) -> None:
             
            # Print out list of artists
             elif returned_payload['status_code'] == 204:
-                print_colors(Colors.YELLOW, '\n\tNo artists currently being monitored.')
+                print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
                 
                 # Update cache to be an empty list  
                 CACHED_ARTIST_LIST = []
@@ -118,7 +118,7 @@ def list_artists(continue_prompt=False) -> None:
                 
                 # Print out list of current artists
                 for index, artist in enumerate(list_of_names, start=1):
-                    print(f'\n\t[{colorfy(Colors.LIGHT_GREEN, str(index))}] {artist}')
+                    print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
 
                 # Update cache with current artists list
                 CACHED_ARTIST_LIST = returned_payload['payload']['artists']['current_artists_with_id']
@@ -148,10 +148,10 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
             Payload=payload.encode()
         )    
     except ClientError as err:
-        print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
         raise
     except Exception as err:
-        print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+        print(f'{Style.RED}Other error occurred: \n\n{err}')
         raise
     else:
         
@@ -178,7 +178,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
         
         # Serve user the most likely artist they were looking for. Ask for confirmation
         answer = get_valid_user_input(
-            prompt=f'\nIs {colorfy(Colors.LIGHT_GREEN, first_artist_guess["artist_name"])} the artist you were looking for? (yes or no)\n> ',
+            prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
             valid_choices=(yes_choices + no_choices)
         )
         
@@ -189,7 +189,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
             
             # Print list of the other most likely choices and have them choose
             for index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1):
-                print(f'\n[{colorfy(Colors.LIGHT_GREEN, str(index))}]')
+                print(f'\n[{Style.LIGHT_GREEN}{index}{Style.RESET}]')
                 print(f'\tArtist: {artist["name"]}')
                 
                 # Format genres into a string
@@ -204,7 +204,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
                     
             # Prompt user for artist choice again
             user_choice = get_valid_user_input(
-                prompt=f'\nWhich artist were you looking for? Select the number. (or enter {colorfy(Colors.YELLOW, "`back`")} to return to search prompt)\n> ',
+                prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
                 valid_choices=[
                     str(option_index) for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1)
                 ] + go_back_choices
@@ -249,7 +249,7 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         
         # Find out if artist is already in list. If not, add the artist
         if artist in CACHED_ARTIST_LIST:
-            print(f'\nYou\'re already monitoring {colorfy(Colors.LIGHT_GREEN, artist_name)}!')
+            print(f'\nYou\'re already monitoring {Style.LIGHT_GREEN}{artist_name}{Style.RESET}!')
         else:
             
             # Prep payload
@@ -266,10 +266,10 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
                     Payload=payload.encode()
                 )    
             except ClientError as err:
-                print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
                 raise
             except Exception as err:
-                print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+                print(f'{Style.RED}Other error occurred: \n\n{err}')
                 raise
             else:
 
@@ -287,7 +287,7 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
 
                     # Update cache with new addition
                     CACHED_ARTIST_LIST.append(artist)
-                    print(f'\n\tYou are now monitoring for {colorfy(Colors.LIGHT_GREEN, artist_name)}\'s new music!')
+                    print(f'\n\tYou are now monitoring for {Style.LIGHT_GREEN}{artist_name}{Style.RESET}\'s new music!')
                     break
                 
     menu_loop_prompt(continue_prompt)
@@ -304,14 +304,14 @@ def remove_artist(continue_prompt=False) -> None:
     # If there are currently no artists to remove, then exit the function
     list_artists()
     if not CACHED_ARTIST_LIST:
-        print_colors(Colors.YELLOW, "\n\tThere are no artists to remove!")
+        print(f"{Style.YELLOW}\n\tThere are no artists to remove!{Style.RESET}")
         menu_loop_prompt(continue_prompt)
         return
 
     # Otherwise, ask them which artist they would like to remove
     go_back_choices = ['b', 'back']
     user_choice = get_valid_user_input(
-        prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {colorfy(Colors.YELLOW, "`back`")} to return to main menu)\n> ',
+        prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {Style.YELLOW}`back`{Style.RESET} to return to main menu)\n> ',
         valid_choices=[
             str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
         ] + go_back_choices
@@ -337,10 +337,10 @@ def remove_artist(continue_prompt=False) -> None:
                     Payload=payload.encode()
                     )
             except ClientError as err:
-                print_colors(Colors.RED, f'Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
+                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
                 raise
             except Exception as err:
-                print_colors(Colors.RED, f'Other error occurred: \n\n{err}')
+                print(f'{Style.RED}Other error occurred: \n\n{err}')
                 raise
             else:
                 
@@ -358,7 +358,7 @@ def remove_artist(continue_prompt=False) -> None:
                     
                     # Update cache by removing artist
                     CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
-                    print(f"\n\tRemoved {colorfy(Colors.LIGHT_GREEN, artist['artist_name'])} from list!")
+                    print(f"\n\tRemoved {Style.LIGHT_GREEN}{artist['artist_name']}{Style.RESET} from list!")
 
     menu_loop_prompt(continue_prompt)
     
@@ -378,7 +378,7 @@ def quit() -> None:
         'auf Wiedersehen',  # German
         'arrivederci',  # Italian
     ]
-    print_colors(Colors.RED, f'\n\tQuitting App! {choice(goodbye_list).title()}!')
+    print(f'{Style.RED}\n\tQuitting App! {choice(goodbye_list).title()}!')
     exit()
 
 
@@ -393,7 +393,7 @@ def menu_loop_prompt(continue_prompt: bool) -> None:
     
     if continue_prompt:
         user_choice = get_valid_user_input(
-            prompt=f"\nPress {colorfy(Colors.LIGHT_GREEN, '[ENTER]')} to go back to main menu... (Or enter {colorfy(Colors.YELLOW, 'quit')} to quit app)\n> ",
+            prompt=f"\nPress {Style.LIGHT_GREEN}[ENTER]{Style.RESET} to go back to main menu... (Or enter {Style.YELLOW}quit{Style.RESET} to quit app)\n> ",
             valid_choices=(quit_choices + go_back_choices)
         )
 
