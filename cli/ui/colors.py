@@ -1,9 +1,9 @@
-class Colors: 
+class Style:
     """
     A class that contains all the colors that can be used in the terminal.
     """ 
       
-    RESET_ALL        = '\033[0m'  # Indicates the end of the color sequence
+    RESET            = '\033[0m'  # Indicates the end of the color sequence
 
     BOLD             = "\033[1m"
     DIM              = "\033[2m"
@@ -36,26 +36,4 @@ class Colors:
     LIGHT_MAGENTA    = "\033[95m"
     LIGHT_CYAN       = "\033[96m"
     WHITE            = "\033[97m"
-
-
-def print_colors(color, string: str) -> None:
-    """
-    Stylizes a whole print function.
-    
-    :param color: The color to stylize the text with.
-    :param string: The string to stylize.
-    :return: None. Prints the stylized string.
-    """
-    
-    print(color + string + Colors.RESET_ALL)
-
-def colorfy(color, string: str) -> str:
-    """
-    Stylizes a string.
-    
-    :param color: The color to stylize the text with.
-    :param string: The string to stylize.
-    :return: The stylized string.
-    """
-    return color + string + Colors.RESET_ALL
 
