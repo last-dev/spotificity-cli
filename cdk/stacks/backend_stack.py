@@ -1,6 +1,7 @@
 from stacks.custom_constructs.table_operators import CoreTableOperatorsConstruct
 from stacks.custom_constructs.spotify_operators import CoreSpotifyOperatorsConstruct
 from stacks.custom_constructs.notifier import NotifierConstruct
+from stacks.custom_constructs.api_gateway import ApiGatewayConstruct
 from constructs import Construct
 from aws_cdk import (
     Stack,
@@ -43,4 +44,13 @@ class BackendStack(Stack):
             artist_table=monitored_artist_table,
             requests_layer=requests_layer,
             access_token_lambda=spotify_operators.get_access_token_lambda
+        )
+        
+        # Custom construct for the API Gateway that will be used to invoke the Lambda functions
+        api_gateway = ApiGatewayConstruct(
+            self, 'ApiGatewayConstruct',
+            fetch_artists_lambda=table_operators.fetch_artists_lambda,
+            add_artists_lambda=table_operators.add_artist_lambda,
+            remove_artists_lambda=table_operators.remove_artist_lambda,
+            update_table_music_lambda=table_operators.update_table_music_lambda
         )
