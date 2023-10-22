@@ -35,25 +35,25 @@ def main_menu() -> tuple[str, dict]:
             "function": list_artists,
             "token_needed": False,  # Indicates function requires access token to fetch data from Spotify API
             "continue_prompt": True  # If called from main menu, loop back to menu when done
-            },
+        },
         '2': {
             "choice_name": f"\n\t[{Style.GREEN}2{Style.RESET}] Add New Artist to List", 
             "function": add_artist,
             "token_needed": True,
             "continue_prompt": True
-            },
+        },
         '3': {
             "choice_name": f"\n\t[{Style.GREEN}3{Style.RESET}] Remove Artist From List", 
             "function": remove_artist,
             "token_needed": False,
             "continue_prompt": True
-            },
+        },
         '4': {
             "choice_name": f"\n\t[{Style.GREEN}4{Style.RESET}] Quit App", 
             "function": quit,
             "token_needed": False,
             "continue_prompt": False
-            },
+        },
     }
     
     print(f"\n\t\t {Style.LIGHT_MAGENTA}MAIN MENU{Style.RESET}")
