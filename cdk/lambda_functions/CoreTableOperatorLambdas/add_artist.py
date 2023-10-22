@@ -11,7 +11,7 @@ def handler(event: dict, context) -> dict:
     print(f'Passed in artist payload: {event["body"]}')
     payload: dict = json.loads(event['body'])
     artist_name: str = payload['artist_name']
-    access_id: str = payload['artist_id']
+    artist_id: str = payload['artist_id']
 
     try:
         # Create a DynamoDB client
@@ -23,7 +23,7 @@ def handler(event: dict, context) -> dict:
             TableName=table,
             Item={
                 'artist_id': {
-                    'S': access_id
+                    'S': artist_id
                 },
                 'artist_name': {
                     'S': artist_name
