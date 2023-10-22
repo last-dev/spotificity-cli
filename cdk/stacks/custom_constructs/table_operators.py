@@ -13,6 +13,21 @@ from aws_cdk import (
 class CoreTableOperatorsConstruct(Construct):  
     
     @property
+    def fetch_artists_lambda(self) -> lambda_.Function:
+        """ Returns lambda Function object for 'FetchArtistsHandler' """
+        return self._fetch_artists_lambda
+    
+    @property
+    def add_artist_lambda(self) -> lambda_.Function:
+        """ Returns lambda Function object for 'AddArtistsHandler' """
+        return self._add_artist_lambda
+    
+    @property   
+    def remove_artist_lambda(self) -> lambda_.Function:
+        """ Returns lambda Function object for 'RemoveArtistsHandler' """
+        return self._remove_artist_lambda
+    
+    @property
     def update_table_music_lambda(self) -> lambda_.Function:
         """ Returns lambda Function object for 'UpdateTableMusicHandler' """
         return self._update_table_music_lambda
@@ -21,7 +36,7 @@ class CoreTableOperatorsConstruct(Construct):
         super().__init__(scope, id, **kwargs)
         
         # Getter Lambda function for 'Monitored Artists' Table
-        _fetch_artists_lambda = lambda_.Function(
+        self._fetch_artists_lambda = lambda_.Function(
             self, 'FetchArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
@@ -34,7 +49,7 @@ class CoreTableOperatorsConstruct(Construct):
         )
 
         # Setter Lambda function for 'Monitored Artists' Table
-        _add_artist_lambda = lambda_.Function(
+        self._add_artist_lambda = lambda_.Function(
             self, 'AddArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
@@ -47,7 +62,7 @@ class CoreTableOperatorsConstruct(Construct):
         )
         
         # Deleter Lambda function for 'Monitored Artists' Table
-        _remove_artist_lambda = lambda_.Function(
+        self._remove_artist_lambda = lambda_.Function(
             self, 'RemoveArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
@@ -73,8 +88,8 @@ class CoreTableOperatorsConstruct(Construct):
         )
 
         # Give Lambda functions specific permissions to do their operations against the table
-        artist_table.grant_read_data(_fetch_artists_lambda)
-        artist_table.grant_write_data(_add_artist_lambda)
-        artist_table.grant_write_data(_remove_artist_lambda)
+        artist_table.grant_read_data(self._fetch_artists_lambda)
+        artist_table.grant_write_data(self._add_artist_lambda)
+        artist_table.grant_write_data(self._remove_artist_lambda)
         artist_table.grant_write_data(self._update_table_music_lambda)
 

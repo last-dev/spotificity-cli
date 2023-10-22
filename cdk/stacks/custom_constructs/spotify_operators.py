@@ -8,8 +8,7 @@ from aws_cdk import (
     aws_lambda as lambda_,
     aws_lambda_event_sources as lambda_event_sources,
     aws_secretsmanager as ssm, 
-    aws_dynamodb as ddb,
-    Fn
+    aws_dynamodb as ddb
 )
 
 class CoreSpotifyOperatorsConstruct(Construct):
@@ -17,6 +16,10 @@ class CoreSpotifyOperatorsConstruct(Construct):
     @property
     def get_access_token_lambda(self) -> lambda_.Function:
         return self._get_access_token_lambda
+    
+    @property
+    def get_artist_id_lambda(self) -> lambda_.Function:
+        return self._get_artist_id_lambda
 
     def __init__(self, scope: Construct, id: str, 
                  artist_table_arn: str, 
@@ -38,7 +41,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         )
         
         # Spotify artist_id 'getter' Lambda Function
-        _get_artist_id_lambda = lambda_.Function(
+        self._get_artist_id_lambda = lambda_.Function(
             self, 'GetArtistID',
             runtime=lambda_.Runtime.PYTHON_3_10,
             code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),

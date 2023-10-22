@@ -4,17 +4,89 @@ from exceptions.error_handling import (
     FailedToRetrieveListOfMatchesWithIDs,
     ExceptionDuringLambdaExecution,
     FailedToAddArtistToTable,
-    FailedToRemoveArtistFromTable
+    FailedToRemoveArtistFromTable,
+    FailedToRetrieveEndpoint
 )
-from ui.colors import Style
 from botocore.exceptions import ClientError
+from requests_aws4auth import AWS4Auth
+from ui.colors import Style
 from random import choice
+import requests
 import boto3
 import json
+import os
 
 # Local memory storage of the current artists I am monitoring
 CACHED_ARTIST_LIST: list = []
 IS_CACHE_EMPTY: bool = False
+
+def get_api_endpoint() -> str:
+    """
+    Retrieve API Gateway endpoint Url from SSM Parameter Store
+    """
+    
+    try:
+        ssm = boto3.client('ssm')
+        parameter = ssm.get_parameter(Name='/Spotificity/ApiGatewayEndpoint/prod', WithDecryption=True)
+    except ClientError as err:
+        print(f'{Style.RED}Client Error Message: {err.response["Error"]["Message"]}')
+        print(f'{Style.RED}Client Error Code: {err.response["Error"]["Code"]}')
+        raise FailedToRetrieveEndpoint(err.response["Error"]["Message"]) 
+    except Exception as err:
+        print(f'Other error occurred: {err}')
+        raise
+    else:
+        return parameter['Parameter']['Value']
+API_ENDPOINT: str = get_api_endpoint()
+
+def send_signed_request(method: str, url: str, service='execute-api', region=os.getenv('CDK_DEFAULT_REGION'), payload=None):
+    """
+    Sends a signed HTTP request to a specified AWS service endpoint. This function will use the AWS 
+    credentials available from the boto3 session to sign the HTTP request using AWS Signature Version 4.
+
+    Parameters:
+    - method (str): The HTTP method for the request. Supported values: 'GET', 'POST', 'PUT', 'DELETE'.
+    - url (str): The full URL to the endpoint where the request will be sent.
+    - service (str, optional): The AWS service code for request signing. Default is 'execute-api' for API Gateway.
+    - region (str, optional): The AWS region where the request should be sent. 
+    - payload (str, optional): The payload body for 'POST' or 'PUT' requests. Default is None.
+
+    Returns:
+    - response (requests.Response): The HTTP response received from the endpoint.
+    """
+    
+    # Create a boto3 session and fetch AWS credentials
+    credentials = boto3.Session().get_credentials()
+    auth = AWS4Auth(
+        credentials.access_key, 
+        credentials.secret_key, 
+        region, service, session_token=credentials.token
+    )
+    
+    # Define a dictionary to map HTTP method strings to their corresponding functions
+    http_method_map = {
+        'GET': requests.get,
+        'POST': requests.post,
+        'PUT': requests.put,
+        'DELETE': requests.delete
+    }
+    http_request_method = http_method_map[method]
+
+    # Make the HTTP request. Additional Error catching is done within the Lambda function.
+    try:
+        response = http_request_method(
+            url, 
+            auth=auth, 
+            data=payload, 
+            headers={
+                'Content-Type': 'application/json'
+            }
+        )
+    except Exception as err:
+        print(f'{Style.RED}Other error occurred: \n\n{err}')
+        raise
+    else:
+        return response
 
 def request_token() -> str:
     """
@@ -22,31 +94,13 @@ def request_token() -> str:
     `/token/` API. 
     """    
     
-    lambda_name = 'GetAccessTokenHandler'
+    response = send_signed_request('GET', f'{API_ENDPOINT}/token')
     
-    try:
-        lambda_ = boto3.client('lambda')
-        response: dict = lambda_.invoke(
-            FunctionName=lambda_name,
-            InvocationType='RequestResponse'
-        )
-    except ClientError as err:
-        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-        raise
-    except Exception as err:
-        print(f'{Style.RED}Other error occurred: \n\n{err}')
-        raise
+    # Raise exception if payload is None, otherwise return access token
+    if response.json().get('access_token') is None:
+        raise FailedToRetrieveToken
     else:
-        
-        # Convert botocore.response.StreamingBody object to dict
-        returned_json: dict = json.load(response['Payload'])
-        
-        # Raise exception if payload is None, otherwise return access token
-        if returned_json.get('access_token') is None:
-            raise FailedToRetrieveToken
-        else:
-            return returned_json['access_token']
-
+        return response.json()['access_token']
 
 def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
     """
@@ -59,7 +113,6 @@ def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
             return user_input
         else:
             print(f'{Style.YELLOW}\n\tPlease enter a valid selection.{Style.RESET}')
-
 
 def list_artists(continue_prompt=False) -> None:
     """
@@ -80,52 +133,36 @@ def list_artists(continue_prompt=False) -> None:
     else: 
         
         # Invoke Lambda to fetch fresh data
-        try:
-            lambda_ = boto3.client('lambda')
-            response = lambda_.invoke(
-                FunctionName=lambda_name,
-                InvocationType='RequestResponse'
-            )    
-        except ClientError as err:
-            print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-            raise
-        except Exception as err:
-            print(f'{Style.RED}Other error occurred: \n\n{err}')
-            raise
-        else:
+        response = send_signed_request('GET', f'{API_ENDPOINT}/artist')
 
-            # Convert botocore.response.StreamingBody object to dict
-            returned_payload: dict = json.load(response['Payload'])
+        # Catch any errors that occurred during Lambda execution
+        if response.json().get('error_type') == 'Other':
+            raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
 
-            # Catch any errors that occurred during `FetchArtistsHandler` execution
-            if returned_payload.get('errorMessage'):
-                raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-            # Catch any errors that occurred during scan operation on DynamoDB table. 
-            elif returned_payload['payload'].get('error'):
-                raise FailedToRetrieveMonitoredArtists(returned_payload['payload']['error'])
+        # Catch any errors that occurred during scan operation on DynamoDB table. 
+        elif response.json().get('error_type') == 'Client':
+            raise FailedToRetrieveMonitoredArtists(response.json()['error'])
+        
+        # Print out list of artists
+        elif response.status_code == 204:
+            print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
             
-           # Print out list of artists
-            elif returned_payload['status_code'] == 204:
-                print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
-                
-                # Update cache to be an empty list  
-                CACHED_ARTIST_LIST = []
-                IS_CACHE_EMPTY = True
-            else:
-                print('\nCurrent monitored artists:')
-                list_of_names: list[str] = returned_payload['payload']['artists']['current_artists_names']
-                
-                # Print out list of current artists
-                for index, artist in enumerate(list_of_names, start=1):
-                    print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
+            # Update cache to be an empty list  
+            CACHED_ARTIST_LIST = []
+            IS_CACHE_EMPTY = True
+        else:
+            print('\nCurrent monitored artists:')
+            list_of_names: list[str] = response.json()['artists']['current_artists_names']
+            
+            # Print out list of current artists
+            for index, artist in enumerate(list_of_names, start=1):
+                print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
 
-                # Update cache with current artists list
-                CACHED_ARTIST_LIST = returned_payload['payload']['artists']['current_artists_with_id']
-                IS_CACHE_EMPTY = False
+            # Update cache with current artists list
+            CACHED_ARTIST_LIST = response.json()['artists']['current_artists_with_id']
+            IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
-
 
 def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | None:
     """
@@ -133,92 +170,75 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
     Also returns each potential artist's Spotify ID.
     """
 
-    # Prep payload
+    # Prep payload. Payload is a JSON formatted string
     lambda_name = 'GetArtist-IDHandler'
     payload = json.dumps({
         'artist_name': artist_name,
         'access_token': access_token    
     })
     
-    try:
-        lambda_ = boto3.client('lambda')
-        response = lambda_.invoke(
-            FunctionName=lambda_name,
-            InvocationType='RequestResponse',
-            Payload=payload.encode()
-        )    
-    except ClientError as err:
-        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-        raise
-    except Exception as err:
-        print(f'{Style.RED}Other error occurred: \n\n{err}')
-        raise
-    else:
-        
-        # Convert botocore.response.StreamingBody object to dict
-        returned_payload: dict = json.load(response['Payload'])
-        
-        # Catch any errors that occurred during `GetArtist-IDHandler` execution
-        if returned_payload.get('errorMessage'):
-            raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-        
-        # Catch any errors that occurred during GET request to Spotify API. 
-        elif returned_payload['payload'].get('error'):
-            raise FailedToRetrieveListOfMatchesWithIDs(returned_payload['payload']['error'])
+    response = send_signed_request('POST', f'{API_ENDPOINT}/artist/id', payload=payload.encode())  
+    
+    # Catch any errors that occurred during lambda execution
+    if response.json().get('error_type') == 'Other':
+        raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+    
+    # Catch any errors that occurred during GET request to Spotify API. 
+    elif response.json().get('error_type') == 'HTTP':
+        raise FailedToRetrieveListOfMatchesWithIDs(response.json()['error'])
+    elif len(response.json()['artistSearchResultsList']) == 0:
+        raise FailedToRetrieveListOfMatchesWithIDs('No artists found that closely match your search.')
 
-        first_artist_guess = {
-            'artist_id': returned_payload['payload']['artistSearchResultsList'][0]['id'],
-            'artist_name': returned_payload['payload']['artistSearchResultsList'][0]['name']
-        }
+    first_artist_guess = {
+        'artist_id': response.json()['artistSearchResultsList'][0]['id'],
+        'artist_name': response.json()['artistSearchResultsList'][0]['name']
+    }
 
-        # Define valid choices for user to enter
-        yes_choices = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
-        no_choices = ['n', 'no', 'nope', 'nah', 'naw', 'na']
-        go_back_choices = ['b', 'back']
+    # Define valid choices for user to enter
+    yes_choices = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
+    no_choices = ['n', 'no', 'nope', 'nah', 'naw', 'na']
+    go_back_choices = ['b', 'back']
+    
+    # Serve user the most likely artist they were looking for. Ask for confirmation
+    answer = get_valid_user_input(
+        prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
+        valid_choices=(yes_choices + no_choices)
+    )
+    
+    # If the user entered a valid selection, then return the most likely artist's Spotify ID and name
+    if answer in yes_choices:
+        return first_artist_guess['artist_id'], first_artist_guess['artist_name']
+    elif answer in no_choices:
         
-        # Serve user the most likely artist they were looking for. Ask for confirmation
-        answer = get_valid_user_input(
-            prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
-            valid_choices=(yes_choices + no_choices)
-        )
-        
-        # If the user entered a valid selection, then return the most likely artist's Spotify ID and name
-        if answer in yes_choices:
-            return first_artist_guess['artist_id'], first_artist_guess['artist_name']
-        elif answer in no_choices:
+        # Print list of the other most likely choices and have them choose
+        for index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
+            print(f'\n[{Style.LIGHT_GREEN}{index}{Style.RESET}]')
+            print(f'\tArtist: {artist["name"]}')
             
-            # Print list of the other most likely choices and have them choose
-            for index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1):
-                print(f'\n[{Style.LIGHT_GREEN}{index}{Style.RESET}]')
-                print(f'\tArtist: {artist["name"]}')
-                
-                # Format genres into a string
-                genres = artist['genres']
-                if genres:
-                    genres_str = ', '.join(genre.title() for genre in genres)
-                else:
-                    genres_str = 'N/A'
-                
-                # Print out genres for each choice to help add context to user
-                print(f'\tGenre(s): {genres_str}')
-                    
-            # Prompt user for artist choice again
-            user_choice = get_valid_user_input(
-                prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
-                valid_choices=[
-                    str(option_index) for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1)
-                ] + go_back_choices
-            )              
+            # Format genres into a string
+            genres = artist['genres']
+            if genres:
+                genres_str = ', '.join(genre.title() for genre in genres)
+            else:
+                genres_str = 'N/A'
             
-            # If user choice matches an option, then return that artist's Spotify ID and name
-            for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1):
-                if int(user_choice) == option_index:
-                    return artist['id'], artist['name']  
+            # Print out genres for each choice to help add context to user
+            print(f'\tGenre(s): {genres_str}')
                 
-                # Otherwise, send user back to search menu if they enter `b` or `back`
-                elif user_choice in go_back_choices:
-                    return None                    
-
+        # Prompt user for artist choice again
+        user_choice = get_valid_user_input(
+            prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
+            valid_choices=[
+                str(option_index) for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1)
+            ] + go_back_choices
+        )              
+        
+        # If user choice matches an option, then return that artist's Spotify ID and name
+        for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
+            if user_choice in go_back_choices:
+                return None   
+            elif int(user_choice) == option_index:
+                return artist['id'], artist['name']         
 
 def add_artist(access_token: str, continue_prompt=False) -> None:
     """
@@ -253,45 +273,26 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         else:
             
             # Prep payload
-            payload = json.dumps({
-                'artist_id': artist_id,
-                'artist_name': artist_name  
-            })
+            payload = json.dumps(artist)
             
-            try:
-                lambda_ = boto3.client('lambda')
-                response = lambda_.invoke(
-                    FunctionName=lambda_name,
-                    InvocationType='RequestResponse',
-                    Payload=payload.encode()
-                )    
-            except ClientError as err:
-                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-                raise
-            except Exception as err:
-                print(f'{Style.RED}Other error occurred: \n\n{err}')
-                raise
+            # Invoke a lambda to add artist
+            response = send_signed_request('POST', f'{API_ENDPOINT}/artist', payload=payload.encode())
+
+            # Catch any errors that occurred during Lambda execution
+            if response.json().get('error_type') == 'Other':
+                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+
+            # Catch any errors that occurred during PUT request on the DynamoDB table.
+            elif response.json().get('error_type') == 'Client':
+                raise FailedToAddArtistToTable(response.json()['error'])
             else:
 
-                # Convert botocore.response.StreamingBody object to dict
-                returned_payload: dict = json.load(response['Payload'])
-
-                # Catch any errors that occurred during `GetArtist-IDHandler` execution
-                if returned_payload.get('errorMessage'):
-                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-                # Catch any errors that occurred during PUT request on the DynamoDB table.
-                elif returned_payload['payload'].get('error'):
-                    raise FailedToAddArtistToTable(returned_payload['payload']['error'])
-                else:
-
-                    # Update cache with new addition
-                    CACHED_ARTIST_LIST.append(artist)
-                    print(f'\n\tYou are now monitoring for {Style.LIGHT_GREEN}{artist_name}{Style.RESET}\'s new music!')
-                    break
+                # Update cache with new addition
+                CACHED_ARTIST_LIST.append(artist)
+                print(f'\n\tYou are now monitoring for {Style.LIGHT_GREEN}{artist_name}{Style.RESET}\'s new music!')
+                break
                 
     menu_loop_prompt(continue_prompt)
-
 
 def remove_artist(continue_prompt=False) -> None:
     """
@@ -329,39 +330,22 @@ def remove_artist(continue_prompt=False) -> None:
             })
 
             # Invoke a lambda function that performs a DELETE request on the DynamoDB table.
-            try:
-                lambda_ = boto3.client('lambda')
-                response = lambda_.invoke(
-                    FunctionName=lambda_name,
-                    InvocationType='RequestResponse',
-                    Payload=payload.encode()
-                    )
-            except ClientError as err:
-                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-                raise
-            except Exception as err:
-                print(f'{Style.RED}Other error occurred: \n\n{err}')
-                raise
+            response = send_signed_request('DELETE', f'{API_ENDPOINT}/artist', payload=payload.encode())
+
+            # Catch any errors that occurred during Lambda execution
+            if response.json().get('error_type') == 'Other':
+                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+
+            # Catch any errors that occurred during DELETE request on the DynamoDB table.
+            elif response.json().get('error_type') == 'Client':
+                raise FailedToRemoveArtistFromTable(response.json()['error'])
             else:
                 
-                # Convert botocore.response.StreamingBody object to dict
-                returned_payload: dict = json.load(response['Payload'])
-
-                # Catch any errors that occurred during `RemoveArtistsHandler` execution
-                if returned_payload.get('errorMessage'):
-                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-                # Catch any errors that occurred during DELETE request on the DynamoDB table.
-                elif returned_payload['payload'].get('error'):
-                    raise FailedToRemoveArtistFromTable(returned_payload['payload']['error'])
-                else:
-                    
-                    # Update cache by removing artist
-                    CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
-                    print(f"\n\tRemoved {Style.LIGHT_GREEN}{artist['artist_name']}{Style.RESET} from list!")
+                # Update cache by removing artist
+                CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
+                print(f"\n\tRemoved {Style.LIGHT_GREEN}{artist['artist_name']}{Style.RESET} from list!")
 
     menu_loop_prompt(continue_prompt)
-    
 
 def quit() -> None:
     """
@@ -380,7 +364,6 @@ def quit() -> None:
     ]
     print(f'{Style.RED}\n\tQuitting App! {choice(goodbye_list).title()}!')
     exit()
-
 
 def menu_loop_prompt(continue_prompt: bool) -> None:
     """

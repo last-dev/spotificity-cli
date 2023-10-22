@@ -1,5 +1,6 @@
 from botocore.exceptions import ClientError
 import boto3
+import json
 import os
 
 def handler(event: dict, context) -> dict:
@@ -7,9 +8,10 @@ def handler(event: dict, context) -> dict:
     Removes an artist from the "Monitored Artists" DynamoDB table
     """
     
-    print(f'Passed in payload: {event}')
-    artist_name: str = event['artist_name']
-    artist_id: str = event['artist_id']
+    print(f'Passed in artist payload: {event["body"]}')
+    payload: dict = json.loads(event['body'])
+    artist_name: str = payload['artist_name']
+    artist_id: str = payload['artist_id']
 
     try:
         # Create a DynamoDB client
@@ -29,28 +31,38 @@ def handler(event: dict, context) -> dict:
     except ClientError as err:
         print(f'Client Error Message: {err.response["Error"]["Message"]}')
         print(f'Client Error Code: {err.response["Error"]["Code"]}')
-        raise
+        print('Error occurred while trying to remove artist. Returning error message to client.')
+        return {
+            'statusCode': err.response['ResponseMetadata']['HTTPStatusCode'],
+            'headers': {
+                'Content-Type': 'application/json'
+            },                
+            'body': json.dumps({
+                'error': err.response['Error'],
+                'error_type': 'Client'
+            })
+        }
     except Exception as err:
         print(f'Other Error Occurred: {err}')
-        raise
+        return {
+            'statusCode': 405,
+            'headers': {
+                'Content-Type': 'application/json'
+            },                
+            'body': json.dumps({
+                'error': str(err),
+                'error_type': 'Other'
+            })
+        }
     else: 
-        print('Parsing returned payload...')
-      
-        # Catch any errors that may have occurred
-        if response.get('Error'):
-            print('Error occurred while trying to remove artist. Returning error message to client.')
-            return {
-                'status_code': response['ResponseMetadata']['HTTPStatusCode'],
-                'payload': {
-                    'error': response['Error']
-                }
-            }
-        else:
-            print(f'DELETE request successful. {artist_name} successfully removed. Returning payload to client.')
-        
-            return {
-                'status_code': 200,
-                'payload': {
-                    'returned_response_from_delete': response
-                }
-            }
+        print(f'DELETE request successful. {artist_name} successfully removed. Returning payload to client.')
+    
+        return {
+            'statusCode': 200,
+            'headers': {
+                'Content-Type': 'application/json'
+            },
+            'body': json.dumps({
+                'returned_response_from_delete': response
+            })
+        }
