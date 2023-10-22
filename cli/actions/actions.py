@@ -72,17 +72,21 @@ def send_signed_request(method: str, url: str, service='execute-api', region=os.
     }
     http_request_method = http_method_map[method]
 
-    # Make the HTTP request. Error catching is done within the Lambda function.
-    response = http_request_method(
-        url, 
-        auth=auth, 
-        data=payload, 
-        headers={
-            'Content-Type': 'application/json'
-        }
-    )
-
-    return response
+    # Make the HTTP request. Additional Error catching is done within the Lambda function.
+    try:
+        response = http_request_method(
+            url, 
+            auth=auth, 
+            data=payload, 
+            headers={
+                'Content-Type': 'application/json'
+            }
+        )
+    except Exception as err:
+        print(f'{Style.RED}Other error occurred: \n\n{err}')
+        raise
+    else:
+        return response
 
 
 def request_token() -> str:
@@ -91,30 +95,13 @@ def request_token() -> str:
     `/token/` API. 
     """    
     
-    lambda_name = 'GetAccessTokenHandler'
+    response = send_signed_request('GET', f'{API_ENDPOINT}/token')
     
-    try:
-        lambda_ = boto3.client('lambda')
-        response: dict = lambda_.invoke(
-            FunctionName=lambda_name,
-            InvocationType='RequestResponse'
-        )
-    except ClientError as err:
-        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-        raise
-    except Exception as err:
-        print(f'{Style.RED}Other error occurred: \n\n{err}')
-        raise
+    # Raise exception if payload is None, otherwise return access token
+    if response.json().get('access_token') is None:
+        raise FailedToRetrieveToken
     else:
-        
-        # Convert botocore.response.StreamingBody object to dict
-        returned_json: dict = json.load(response['Payload'])
-        
-        # Raise exception if payload is None, otherwise return access token
-        if returned_json.get('access_token') is None:
-            raise FailedToRetrieveToken
-        else:
-            return returned_json['access_token']
+        return response.json()['access_token']
 
 
 def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
