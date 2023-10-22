@@ -52,7 +52,6 @@ class BackendStack(Stack):
             fetch_artists_lambda=table_operators.fetch_artists_lambda,
             add_artists_lambda=table_operators.add_artist_lambda,
             remove_artists_lambda=table_operators.remove_artist_lambda,
-            update_table_music_lambda=table_operators.update_table_music_lambda,
             access_token_lambda=spotify_operators.get_access_token_lambda,
             get_artist_id_lambda=spotify_operators.get_artist_id_lambda
         )
