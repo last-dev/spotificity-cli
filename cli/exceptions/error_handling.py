@@ -57,3 +57,13 @@ class FailedToRemoveArtistFromTable(Exception):
 
     def __str__(self) -> str:
         return f'{Style.RED}\nFailed to remove artist from DynamoDB table: \n\n{self.error_message}'
+    
+class FailedToRetrieveEndpoint(Exception):
+    """
+    Raised when app fails to retrieve endpoint from SSM Parameter Store
+    """
+    def __init__(self, error_message: str) -> None:
+        self.error_message = error_message
+
+    def __str__(self) -> str:
+        return f'{Style.RED}\nFailed to retrieve API Gateway endpoint Url from SSM Parameter Store: \n\n{self.error_message}'
