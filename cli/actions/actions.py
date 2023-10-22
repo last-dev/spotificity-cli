@@ -6,15 +6,84 @@ from exceptions.error_handling import (
     FailedToAddArtistToTable,
     FailedToRemoveArtistFromTable
 )
-from ui.colors import Style
 from botocore.exceptions import ClientError
+from requests.exceptions import HTTPError
+from requests_aws4auth import AWS4Auth
+from ui.colors import Style
 from random import choice
+import requests
 import boto3
 import json
+import os
 
 # Local memory storage of the current artists I am monitoring
 CACHED_ARTIST_LIST: list = []
 IS_CACHE_EMPTY: bool = False
+
+def get_api_endpoint() -> str:
+    try:
+        ssm = boto3.client('secretsmanager')
+        
+        response = ssm.get_secret_value(
+            SecretId='ProdAPIGatewayEndpoint'
+        )
+    except ClientError as err:
+        print(f'{Style.RED}Client Error Message: {err.response["Error"]["Message"]}')
+        print(f'{Style.RED}Client Error Code: {err.response["Error"]["Code"]}')
+        raise
+    except Exception as err:
+        print(f'Other error occurred: {err}')
+        raise
+    else:
+        return json.loads(response['SecretString'])['APIGatewayEndpoint']
+API_ENDPOINT: str = get_api_endpoint()
+
+
+def send_signed_request(method: str, url: str, service='execute-api', region=os.getenv('CDK_DEFAULT_REGION'), payload=None):
+    """
+    Sends a signed HTTP request to a specified AWS service endpoint. This function will use the AWS 
+    credentials available from the boto3 session to sign the HTTP request using AWS Signature Version 4.
+
+    Parameters:
+    - method (str): The HTTP method for the request. Supported values: 'GET', 'POST', 'PUT', 'DELETE'.
+    - url (str): The full URL to the endpoint where the request will be sent.
+    - service (str, optional): The AWS service code for request signing. Default is 'execute-api' for API Gateway.
+    - region (str, optional): The AWS region where the request should be sent. 
+    - payload (str, optional): The payload body for 'POST' or 'PUT' requests. Default is None.
+
+    Returns:
+    - response (requests.Response): The HTTP response received from the endpoint.
+    """
+    
+    # Create a boto3 session and fetch AWS credentials
+    credentials = boto3.Session().get_credentials()
+    auth = AWS4Auth(
+        credentials.access_key, 
+        credentials.secret_key, 
+        region, service, session_token=credentials.token
+    )
+    
+    # Define a dictionary to map HTTP method strings to their corresponding functions
+    http_method_map = {
+        'GET': requests.get,
+        'POST': requests.post,
+        'PUT': requests.put,
+        'DELETE': requests.delete
+    }
+    http_request_method = http_method_map[method]
+
+    # Make the HTTP request. Error catching is done within the Lambda function.
+    response = http_request_method(
+        url, 
+        auth=auth, 
+        data=payload, 
+        headers={
+            'Content-Type': 'application/json'
+        }
+    )
+
+    return response
+
 
 def request_token() -> str:
     """
@@ -80,49 +149,34 @@ def list_artists(continue_prompt=False) -> None:
     else: 
         
         # Invoke Lambda to fetch fresh data
-        try:
-            lambda_ = boto3.client('lambda')
-            response = lambda_.invoke(
-                FunctionName=lambda_name,
-                InvocationType='RequestResponse'
-            )    
-        except ClientError as err:
-            print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-            raise
-        except Exception as err:
-            print(f'{Style.RED}Other error occurred: \n\n{err}')
-            raise
-        else:
+        response = send_signed_request('GET', f'{API_ENDPOINT}/artist')
 
-            # Convert botocore.response.StreamingBody object to dict
-            returned_payload: dict = json.load(response['Payload'])
+        # Catch any errors that occurred during Lambda execution
+        if response.json().get('error') and response.status_code == 403:
+            raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
 
-            # Catch any errors that occurred during `FetchArtistsHandler` execution
-            if returned_payload.get('errorMessage'):
-                raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-            # Catch any errors that occurred during scan operation on DynamoDB table. 
-            elif returned_payload['payload'].get('error'):
-                raise FailedToRetrieveMonitoredArtists(returned_payload['payload']['error'])
+        # Catch any errors that occurred during scan operation on DynamoDB table. 
+        elif response.json().get('error'):
+            raise FailedToRetrieveMonitoredArtists(response.json()['error'])
+        
+        # Print out list of artists
+        elif response.status_code == 204:
+            print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
             
-           # Print out list of artists
-            elif returned_payload['status_code'] == 204:
-                print(f'{Style.YELLOW}\n\tNo artists currently being monitored.{Style.RESET}')
-                
-                # Update cache to be an empty list  
-                CACHED_ARTIST_LIST = []
-                IS_CACHE_EMPTY = True
-            else:
-                print('\nCurrent monitored artists:')
-                list_of_names: list[str] = returned_payload['payload']['artists']['current_artists_names']
-                
-                # Print out list of current artists
-                for index, artist in enumerate(list_of_names, start=1):
-                    print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
+            # Update cache to be an empty list  
+            CACHED_ARTIST_LIST = []
+            IS_CACHE_EMPTY = True
+        else:
+            print('\nCurrent monitored artists:')
+            list_of_names: list[str] = response.json()['artists']['current_artists_names']
+            
+            # Print out list of current artists
+            for index, artist in enumerate(list_of_names, start=1):
+                print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
 
-                # Update cache with current artists list
-                CACHED_ARTIST_LIST = returned_payload['payload']['artists']['current_artists_with_id']
-                IS_CACHE_EMPTY = False
+            # Update cache with current artists list
+            CACHED_ARTIST_LIST = response.json()['artists']['current_artists_with_id']
+            IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
 
