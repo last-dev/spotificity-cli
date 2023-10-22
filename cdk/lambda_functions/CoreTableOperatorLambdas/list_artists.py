@@ -1,5 +1,6 @@
 from botocore.exceptions import ClientError
 import boto3
+import json
 import os
 
 def handler(event: dict, context) -> dict:
@@ -20,29 +21,39 @@ def handler(event: dict, context) -> dict:
     except ClientError as err:
         print(f'Client Error Message: {err.response["Error"]["Message"]}')
         print(f'Client Error Code: {err.response["Error"]["Code"]}')
-        raise
+        return {
+            'statusCode': err.response['ResponseMetadata']['HTTPStatusCode'],
+            'headers': {
+                'Content-Type': 'application/json'
+            },                
+            'body': json.dumps({
+                'error': err.response['Error']
+            })
+        }
     except Exception as err:
         print(f'Other Error Occurred: {err}')
-        raise
+        return {
+            'statusCode': 403,
+            'headers': {
+                'Content-Type': 'application/json'
+            },                
+            'body': json.dumps({
+                'error': str(err)
+            })
+        }
     else: 
         print('Parsing returned payload...')
 
-        # Catch any errors that may have occurred
-        if response.get('Error'):
-            print('Error occurred. Returning error message to client.')
-            return {
-                'status_code': response['ResponseMetadata']['HTTPStatusCode'],
-                'payload': {
-                    'error': response['Error']
-                }
-            }
-        elif len(response['Items']) == 0:
+        if len(response['Items']) == 0:
             print('No artists found. Returning empty list to client.')
             return {
-                'status_code': 204, 
-                'payload': {
+                'statusCode': 204, 
+                'headers': {
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({
                     'artists': []
-                }
+                })
             }
         else:
             print('Successfully received list of artists. Returning list to client.')
@@ -54,11 +65,14 @@ def handler(event: dict, context) -> dict:
             current_artists_names: list[str] = [artist['artist_name']['S'] for artist in response['Items']]
 
             return {
-                'status_code': 200,
-                'payload': {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({
                     'artists': {
                         'current_artists_names': current_artists_names,
                         'current_artists_with_id': current_artists_with_id
                     }
-                }
+                })
             }
