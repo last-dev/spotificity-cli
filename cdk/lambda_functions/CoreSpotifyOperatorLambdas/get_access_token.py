@@ -10,7 +10,10 @@ def handler(event, context) -> dict:
     Fetches an access token from the Spotify `/token/` API. 
     This access token is needed for all future Spotify API calls. 
     """
-        
+    
+    # Print event to log which source invoked this lambda function
+    print(event)
+    
     try:      
         print('Attempting to pull Spotify client credentials from AWS Secrets Manager...')
 
@@ -38,9 +41,22 @@ def handler(event, context) -> dict:
         # Request access token
         access_token = request_token(client_id, client_secret)
         
-        return {
-            'access_token': access_token
-        }
+        # Return appropriate format based on lambda invocation source
+        # If invoked from API Gateway, return HTTP response
+        if 'httpMethod' in event:
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Content-Type': 'application/json'
+                },
+                'body': json.dumps({
+                    'access_token': access_token
+                })
+            }
+        else:
+            return {
+                'access_token': access_token
+            }
 
 def request_token(client_id: str, client_secret: str) -> str:
     """
