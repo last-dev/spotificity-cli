@@ -139,11 +139,11 @@ def list_artists(continue_prompt=False) -> None:
         response = send_signed_request('GET', f'{API_ENDPOINT}/artist')
 
         # Catch any errors that occurred during Lambda execution
-        if response.json().get('error') and response.status_code == 403:
+        if response.json().get('error_type') == 'Other':
             raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
 
         # Catch any errors that occurred during scan operation on DynamoDB table. 
-        elif response.json().get('error'):
+        elif response.json().get('error_type') == 'Client':
             raise FailedToRetrieveMonitoredArtists(response.json()['error'])
         
         # Print out list of artists
@@ -174,91 +174,75 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
     Also returns each potential artist's Spotify ID.
     """
 
-    # Prep payload
+    # Prep payload. Payload is a JSON formatted string
     lambda_name = 'GetArtist-IDHandler'
     payload = json.dumps({
         'artist_name': artist_name,
         'access_token': access_token    
     })
     
-    try:
-        lambda_ = boto3.client('lambda')
-        response = lambda_.invoke(
-            FunctionName=lambda_name,
-            InvocationType='RequestResponse',
-            Payload=payload.encode()
-        )    
-    except ClientError as err:
-        print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-        raise
-    except Exception as err:
-        print(f'{Style.RED}Other error occurred: \n\n{err}')
-        raise
-    else:
-        
-        # Convert botocore.response.StreamingBody object to dict
-        returned_payload: dict = json.load(response['Payload'])
-        
-        # Catch any errors that occurred during `GetArtist-IDHandler` execution
-        if returned_payload.get('errorMessage'):
-            raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-        
-        # Catch any errors that occurred during GET request to Spotify API. 
-        elif returned_payload['payload'].get('error'):
-            raise FailedToRetrieveListOfMatchesWithIDs(returned_payload['payload']['error'])
+    response = send_signed_request('POST', f'{API_ENDPOINT}/artist/id', payload=payload.encode())  
+    
+    # Catch any errors that occurred during lambda execution
+    if response.json().get('error_type') == 'Other':
+        raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+    
+    # Catch any errors that occurred during GET request to Spotify API. 
+    elif response.json().get('error_type') == 'HTTP':
+        raise FailedToRetrieveListOfMatchesWithIDs(response.json()['error'])
+    elif len(response.json()['artistSearchResultsList']) == 0:
+        raise FailedToRetrieveListOfMatchesWithIDs('No artists found that closely match your search.')
 
-        first_artist_guess = {
-            'artist_id': returned_payload['payload']['artistSearchResultsList'][0]['id'],
-            'artist_name': returned_payload['payload']['artistSearchResultsList'][0]['name']
-        }
+    first_artist_guess = {
+        'artist_id': response.json()['artistSearchResultsList'][0]['id'],
+        'artist_name': response.json()['artistSearchResultsList'][0]['name']
+    }
 
-        # Define valid choices for user to enter
-        yes_choices = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
-        no_choices = ['n', 'no', 'nope', 'nah', 'naw', 'na']
-        go_back_choices = ['b', 'back']
+    # Define valid choices for user to enter
+    yes_choices = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
+    no_choices = ['n', 'no', 'nope', 'nah', 'naw', 'na']
+    go_back_choices = ['b', 'back']
+    
+    # Serve user the most likely artist they were looking for. Ask for confirmation
+    answer = get_valid_user_input(
+        prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
+        valid_choices=(yes_choices + no_choices)
+    )
+    
+    # If the user entered a valid selection, then return the most likely artist's Spotify ID and name
+    if answer in yes_choices:
+        return first_artist_guess['artist_id'], first_artist_guess['artist_name']
+    elif answer in no_choices:
         
-        # Serve user the most likely artist they were looking for. Ask for confirmation
-        answer = get_valid_user_input(
-            prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
-            valid_choices=(yes_choices + no_choices)
-        )
+        # Print list of the other most likely choices and have them choose
+        for index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
+            print(f'\n[{Style.LIGHT_GREEN}{index}{Style.RESET}]')
+            print(f'\tArtist: {artist["name"]}')
+            
+            # Format genres into a string
+            genres = artist['genres']
+            if genres:
+                genres_str = ', '.join(genre.title() for genre in genres)
+            else:
+                genres_str = 'N/A'
+            
+            # Print out genres for each choice to help add context to user
+            print(f'\tGenre(s): {genres_str}')
+                
+        # Prompt user for artist choice again
+        user_choice = get_valid_user_input(
+            prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
+            valid_choices=[
+                str(option_index) for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1)
+            ] + go_back_choices
+        )              
         
-        # If the user entered a valid selection, then return the most likely artist's Spotify ID and name
-        if answer in yes_choices:
-            return first_artist_guess['artist_id'], first_artist_guess['artist_name']
-        elif answer in no_choices:
-            
-            # Print list of the other most likely choices and have them choose
-            for index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1):
-                print(f'\n[{Style.LIGHT_GREEN}{index}{Style.RESET}]')
-                print(f'\tArtist: {artist["name"]}')
-                
-                # Format genres into a string
-                genres = artist['genres']
-                if genres:
-                    genres_str = ', '.join(genre.title() for genre in genres)
-                else:
-                    genres_str = 'N/A'
-                
-                # Print out genres for each choice to help add context to user
-                print(f'\tGenre(s): {genres_str}')
-                    
-            # Prompt user for artist choice again
-            user_choice = get_valid_user_input(
-                prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
-                valid_choices=[
-                    str(option_index) for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1)
-                ] + go_back_choices
-            )              
-            
-            # If user choice matches an option, then return that artist's Spotify ID and name
-            for option_index, artist in enumerate(returned_payload['payload']['artistSearchResultsList'], start=1):
-                if int(user_choice) == option_index:
-                    return artist['id'], artist['name']  
-                
-                # Otherwise, send user back to search menu if they enter `b` or `back`
-                elif user_choice in go_back_choices:
-                    return None                    
+        # If user choice matches an option, then return that artist's Spotify ID and name
+        for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
+            if user_choice in go_back_choices:
+                return None   
+            elif int(user_choice) == option_index:
+                return artist['id'], artist['name']         
 
 
 def add_artist(access_token: str, continue_prompt=False) -> None:
@@ -294,42 +278,24 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         else:
             
             # Prep payload
-            payload = json.dumps({
-                'artist_id': artist_id,
-                'artist_name': artist_name  
-            })
+            payload = json.dumps(artist)
             
-            try:
-                lambda_ = boto3.client('lambda')
-                response = lambda_.invoke(
-                    FunctionName=lambda_name,
-                    InvocationType='RequestResponse',
-                    Payload=payload.encode()
-                )    
-            except ClientError as err:
-                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-                raise
-            except Exception as err:
-                print(f'{Style.RED}Other error occurred: \n\n{err}')
-                raise
+            # Invoke a lambda to add artist
+            response = send_signed_request('POST', f'{API_ENDPOINT}/artist', payload=payload.encode())
+
+            # Catch any errors that occurred during Lambda execution
+            if response.json().get('error_type') == 'Other':
+                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+
+            # Catch any errors that occurred during PUT request on the DynamoDB table.
+            elif response.json().get('error_type') == 'Client':
+                raise FailedToAddArtistToTable(response.json()['error'])
             else:
 
-                # Convert botocore.response.StreamingBody object to dict
-                returned_payload: dict = json.load(response['Payload'])
-
-                # Catch any errors that occurred during `GetArtist-IDHandler` execution
-                if returned_payload.get('errorMessage'):
-                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-                # Catch any errors that occurred during PUT request on the DynamoDB table.
-                elif returned_payload['payload'].get('error'):
-                    raise FailedToAddArtistToTable(returned_payload['payload']['error'])
-                else:
-
-                    # Update cache with new addition
-                    CACHED_ARTIST_LIST.append(artist)
-                    print(f'\n\tYou are now monitoring for {Style.LIGHT_GREEN}{artist_name}{Style.RESET}\'s new music!')
-                    break
+                # Update cache with new addition
+                CACHED_ARTIST_LIST.append(artist)
+                print(f'\n\tYou are now monitoring for {Style.LIGHT_GREEN}{artist_name}{Style.RESET}\'s new music!')
+                break
                 
     menu_loop_prompt(continue_prompt)
 
