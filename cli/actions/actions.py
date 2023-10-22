@@ -4,10 +4,10 @@ from exceptions.error_handling import (
     FailedToRetrieveListOfMatchesWithIDs,
     ExceptionDuringLambdaExecution,
     FailedToAddArtistToTable,
-    FailedToRemoveArtistFromTable
+    FailedToRemoveArtistFromTable,
+    FailedToRetrieveEndpoint
 )
 from botocore.exceptions import ClientError
-from requests.exceptions import HTTPError
 from requests_aws4auth import AWS4Auth
 from ui.colors import Style
 from random import choice
@@ -21,23 +21,23 @@ CACHED_ARTIST_LIST: list = []
 IS_CACHE_EMPTY: bool = False
 
 def get_api_endpoint() -> str:
+    """
+    Retrieve API Gateway endpoint Url from SSM Parameter Store
+    """
+    
     try:
-        ssm = boto3.client('secretsmanager')
-        
-        response = ssm.get_secret_value(
-            SecretId='ProdAPIGatewayEndpoint'
-        )
+        ssm = boto3.client('ssm')
+        parameter = ssm.get_parameter(Name='/Spotificity/ApiGatewayEndpoint/prod', WithDecryption=True)
     except ClientError as err:
         print(f'{Style.RED}Client Error Message: {err.response["Error"]["Message"]}')
         print(f'{Style.RED}Client Error Code: {err.response["Error"]["Code"]}')
-        raise
+        raise FailedToRetrieveEndpoint(err.response["Error"]["Message"]) 
     except Exception as err:
         print(f'Other error occurred: {err}')
         raise
     else:
-        return json.loads(response['SecretString'])['APIGatewayEndpoint']
+        return parameter['Parameter']['Value']
 API_ENDPOINT: str = get_api_endpoint()
-
 
 def send_signed_request(method: str, url: str, service='execute-api', region=os.getenv('CDK_DEFAULT_REGION'), payload=None):
     """
@@ -88,7 +88,6 @@ def send_signed_request(method: str, url: str, service='execute-api', region=os.
     else:
         return response
 
-
 def request_token() -> str:
     """
     Invoke Lambda function that fetches an access token from the Spotify 
@@ -103,7 +102,6 @@ def request_token() -> str:
     else:
         return response.json()['access_token']
 
-
 def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
     """
     Instead of using nested while loops, this function uses a single while loop
@@ -115,7 +113,6 @@ def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
             return user_input
         else:
             print(f'{Style.YELLOW}\n\tPlease enter a valid selection.{Style.RESET}')
-
 
 def list_artists(continue_prompt=False) -> None:
     """
@@ -166,7 +163,6 @@ def list_artists(continue_prompt=False) -> None:
             IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
-
 
 def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | None:
     """
@@ -244,7 +240,6 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
             elif int(user_choice) == option_index:
                 return artist['id'], artist['name']         
 
-
 def add_artist(access_token: str, continue_prompt=False) -> None:
     """
     Prompts user for which artist they want to add to be monitored. 
@@ -299,7 +294,6 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
                 
     menu_loop_prompt(continue_prompt)
 
-
 def remove_artist(continue_prompt=False) -> None:
     """
     Removes an artist from the monitored list
@@ -336,39 +330,22 @@ def remove_artist(continue_prompt=False) -> None:
             })
 
             # Invoke a lambda function that performs a DELETE request on the DynamoDB table.
-            try:
-                lambda_ = boto3.client('lambda')
-                response = lambda_.invoke(
-                    FunctionName=lambda_name,
-                    InvocationType='RequestResponse',
-                    Payload=payload.encode()
-                    )
-            except ClientError as err:
-                print(f'{Style.RED}Client Error Message: \n\t{err.response["Error"]["Code"]}\n\t{err.response["Error"]["Message"]}')
-                raise
-            except Exception as err:
-                print(f'{Style.RED}Other error occurred: \n\n{err}')
-                raise
+            response = send_signed_request('DELETE', f'{API_ENDPOINT}/artist', payload=payload.encode())
+
+            # Catch any errors that occurred during Lambda execution
+            if response.json().get('error_type') == 'Other':
+                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
+
+            # Catch any errors that occurred during DELETE request on the DynamoDB table.
+            elif response.json().get('error_type') == 'Client':
+                raise FailedToRemoveArtistFromTable(response.json()['error'])
             else:
                 
-                # Convert botocore.response.StreamingBody object to dict
-                returned_payload: dict = json.load(response['Payload'])
-
-                # Catch any errors that occurred during `RemoveArtistsHandler` execution
-                if returned_payload.get('errorMessage'):
-                    raise ExceptionDuringLambdaExecution(lambda_name, returned_payload['errorMessage'])
-
-                # Catch any errors that occurred during DELETE request on the DynamoDB table.
-                elif returned_payload['payload'].get('error'):
-                    raise FailedToRemoveArtistFromTable(returned_payload['payload']['error'])
-                else:
-                    
-                    # Update cache by removing artist
-                    CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
-                    print(f"\n\tRemoved {Style.LIGHT_GREEN}{artist['artist_name']}{Style.RESET} from list!")
+                # Update cache by removing artist
+                CACHED_ARTIST_LIST.pop(int(user_choice) - 1)
+                print(f"\n\tRemoved {Style.LIGHT_GREEN}{artist['artist_name']}{Style.RESET} from list!")
 
     menu_loop_prompt(continue_prompt)
-    
 
 def quit() -> None:
     """
@@ -387,7 +364,6 @@ def quit() -> None:
     ]
     print(f'{Style.RED}\n\tQuitting App! {choice(goodbye_list).title()}!')
     exit()
-
 
 def menu_loop_prompt(continue_prompt: bool) -> None:
     """
