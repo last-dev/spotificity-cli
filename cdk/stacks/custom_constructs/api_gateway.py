@@ -17,11 +17,12 @@ class ApiGatewayConstruct(Construct):
                  add_artists_lambda: lambda_.Function,
                  remove_artists_lambda: lambda_.Function, 
                  update_table_music_lambda: lambda_.Function, 
-                 access_token_lambda: lambda_.Function, **kwargs) -> None:
+                 access_token_lambda: lambda_.Function, 
+                 get_artist_id_lambda: lambda_.Function, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         
         # Create an IAM Role for API Gateway to assume. We'll use this to 
-        # allow API Gateway to invoke our Lambdas.
+        # allow API Gateway to invoke our Lambdas
         api_gateway_role = iam.Role(
             self, 'ApiGatewayRole',
             assumed_by=iam.ServicePrincipal('apigateway.amazonaws.com')
@@ -29,8 +30,8 @@ class ApiGatewayConstruct(Construct):
         
         # Create API Gateway
         self.api = api_gw.RestApi(
-            self, "ApiForCoreTableOperators",
-            description="API Gateway for CoreTableOperator Lambdas",
+            self, "ApiForClientInvokes",
+            description="API Gateway for Lambdas invoked from client.",
             policy=api_gateway_role.assume_role_policy
         )
         
@@ -40,6 +41,7 @@ class ApiGatewayConstruct(Construct):
         remove_artists_integration = api_gw.LambdaIntegration(remove_artists_lambda)  # type: ignore
         update_table_music_integration = api_gw.LambdaIntegration(update_table_music_lambda)  # type: ignore
         access_token_integration = api_gw.LambdaIntegration(access_token_lambda)  # type: ignore
+        get_artist_id_integration = api_gw.LambdaIntegration(get_artist_id_lambda)  # type: ignore
         
         """
         Define resources and methods for all CoreTableOperator Lambda functions.
@@ -52,6 +54,10 @@ class ApiGatewayConstruct(Construct):
         # GET /artist
         artist_resource = self.api.root.add_resource('artist')
         artist_resource.add_method('GET', fetch_artists_integration, authorization_type=api_gw.AuthorizationType.IAM)
+        
+        # POST/artist/id
+        get_artist_id_resource = artist_resource.add_resource('id')
+        get_artist_id_resource.add_method('POST', get_artist_id_integration, authorization_type=api_gw.AuthorizationType.IAM)
 
         # POST /artist
         add_artist_resource = artist_resource
@@ -71,6 +77,7 @@ class ApiGatewayConstruct(Construct):
         remove_artists_lambda.grant_invoke(api_gateway_role)
         update_table_music_lambda.grant_invoke(api_gateway_role)
         access_token_lambda.grant_invoke(api_gateway_role)
+        get_artist_id_lambda.grant_invoke(api_gateway_role)
         
         # Output the API Gateway URL
         CfnOutput(
