@@ -27,18 +27,20 @@ def handler(event: dict, context) -> dict:
                 'Content-Type': 'application/json'
             },                
             'body': json.dumps({
-                'error': err.response['Error']
+                'error': err.response['Error'],
+                'error_type': 'Client'
             })
         }
     except Exception as err:
         print(f'Other Error Occurred: {err}')
         return {
-            'statusCode': 403,
+            'statusCode': 405,
             'headers': {
                 'Content-Type': 'application/json'
             },                
             'body': json.dumps({
-                'error': str(err)
+                'error': str(err),
+                'error_type': 'Other'
             })
         }
     else: 
