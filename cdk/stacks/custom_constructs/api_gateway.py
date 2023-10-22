@@ -16,7 +16,8 @@ class ApiGatewayConstruct(Construct):
                  fetch_artists_lambda: lambda_.Function,
                  add_artists_lambda: lambda_.Function,
                  remove_artists_lambda: lambda_.Function, 
-                 update_table_music_lambda: lambda_.Function, **kwargs) -> None:
+                 update_table_music_lambda: lambda_.Function, 
+                 access_token_lambda: lambda_.Function, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         
         # Create an IAM Role for API Gateway to assume. We'll use this to 
@@ -26,7 +27,7 @@ class ApiGatewayConstruct(Construct):
             assumed_by=iam.ServicePrincipal('apigateway.amazonaws.com')
         )
         
-        # Create an API Gateway
+        # Create API Gateway
         self.api = api_gw.RestApi(
             self, "ApiForCoreTableOperators",
             description="API Gateway for CoreTableOperator Lambdas",
@@ -38,11 +39,16 @@ class ApiGatewayConstruct(Construct):
         add_artists_integration = api_gw.LambdaIntegration(add_artists_lambda)  # type: ignore
         remove_artists_integration = api_gw.LambdaIntegration(remove_artists_lambda)  # type: ignore
         update_table_music_integration = api_gw.LambdaIntegration(update_table_music_lambda)  # type: ignore
+        access_token_integration = api_gw.LambdaIntegration(access_token_lambda)  # type: ignore
         
         """
         Define resources and methods for all CoreTableOperator Lambda functions.
         Making sure that IAM Authentication is enabled for each Gateway method
         """
+        # GET /token
+        token_resource = self.api.root.add_resource('token')
+        token_resource.add_method('GET', access_token_integration, authorization_type=api_gw.AuthorizationType.IAM)
+        
         # GET /artist
         artist_resource = self.api.root.add_resource('artist')
         artist_resource.add_method('GET', fetch_artists_integration, authorization_type=api_gw.AuthorizationType.IAM)
@@ -64,6 +70,7 @@ class ApiGatewayConstruct(Construct):
         add_artists_lambda.grant_invoke(api_gateway_role)
         remove_artists_lambda.grant_invoke(api_gateway_role)
         update_table_music_lambda.grant_invoke(api_gateway_role)
+        access_token_lambda.grant_invoke(api_gateway_role)
         
         # Output the API Gateway URL
         CfnOutput(
