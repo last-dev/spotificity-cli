@@ -1,9 +1,13 @@
 from botocore.exceptions import ClientError
 from requests.exceptions import HTTPError
 import requests
+import logging
 import base64
 import boto3
 import json
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def handler(event, context) -> dict:
     """
@@ -12,10 +16,10 @@ def handler(event, context) -> dict:
     """
     
     # Print event to log which source invoked this lambda function
-    print(event)
+    log.info(f'Event: {event}')
     
     try:      
-        print('Attempting to pull Spotify client credentials from AWS Secrets Manager...')
+        log.info('Attempting to pull Spotify client credentials from AWS Secrets Manager...')
 
         # Create a Secrets Manager client
         ssm = boto3.client('secretsmanager')
@@ -24,14 +28,14 @@ def handler(event, context) -> dict:
             SecretId='SpotifySecrets'
         )
     except ClientError as err:
-        print(f'Client Error Message: {err.response["Error"]["Message"]}')
-        print(f'Client Error Code: {err.response["Error"]["Code"]}')
+        log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+        log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
     except Exception as err:
-        print(f'Other Error Occurred: {err}')
+        log.error(f'Other Error Occurred: {err}')
         raise
     else: 
-        print('Successfully retrieved Spotify client credentials from AWS Secrets Manager')
+        log.info('Successfully retrieved Spotify client credentials from AWS Secrets Manager')
         
         # Extract client creds from returned payload
         client_creds = json.loads(response['SecretString'])
@@ -39,11 +43,13 @@ def handler(event, context) -> dict:
         client_secret = client_creds['SPOTIFY_CLIENT_SECRET']
         
         # Request access token
+        log.debug("Entering request_token function...")
         access_token = request_token(client_id, client_secret)
         
         # Return appropriate format based on lambda invocation source
         # If invoked from API Gateway, return HTTP response
         if 'httpMethod' in event:
+            log.debug('Lambda invoked from API Gateway. Returning HTTP response...')
             return {
                 'statusCode': 200,
                 'headers': {
@@ -54,6 +60,7 @@ def handler(event, context) -> dict:
                 })
             }
         else:
+            log.debug('Lambda invoked by another Lambda function. Returning payload...')
             return {
                 'access_token': access_token
             }
@@ -67,7 +74,7 @@ def request_token(client_id: str, client_secret: str) -> str:
     endpoint: str = 'https://accounts.spotify.com/api/token'
     
     try:
-        print("Initiating POST request for Access Token...")
+        log.info("Initiating POST request for Access Token...")
         
         response = requests.post(
             url=endpoint, 
@@ -84,19 +91,20 @@ def request_token(client_id: str, client_secret: str) -> str:
         # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
-        print(f'HTTP Error occurred: {err}')
+        log.error(f'HTTP Error occurred: {err}')
         raise
     except Exception as err:
-        print(f'Other error occurred: {err}')
+        log.error(f'Other error occurred: {err}')
         raise
     else:
-        print(f'Successfully received response from Spotify Token API. HTTP Status code: {response.status_code}')
-        print(f'Returned Payload: {response.json()}')
+        log.info(f'Successfully received response from Spotify Token API. HTTP Status code: {response.status_code}')
+        log.debug(f'Returned Payload: {response.json()}')
 
         # Check if error occurred while attempting to retrieve access token. If not, return token
         if response.json().get('error'):
-            print(f'Unsuccessful response from Spotify Token API. Error: {response.json()["error"]}')
+            log.error(f'Unsuccessful response from Spotify Token API. Error: {response.json()["error"]}')
             raise Exception(f'Error: {response.json()["error"]}')
         else:
+            log.debug("Exiting request_token function...")
             return response.json()['access_token']
 

@@ -1,6 +1,10 @@
 from botocore.exceptions import ClientError
+import logging
 import boto3
 import os
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def handler(event, context) -> dict:
     """
@@ -9,14 +13,10 @@ def handler(event, context) -> dict:
     If there are no changes, return an empty list.
     """
     
-    print(f'Passed in event: {event}')
+    log.debug(f'Passed in event: {event}')
     artists_with_changes: list = []
     
-    # Create a DynamoDB client
-    ddb = boto3.client('dynamodb')
-    table = os.getenv('ARTIST_TABLE_NAME')
-    
-    print('Initiating iteration through artists to update the music table...')
+    log.info('Initiating iteration through artists to update the music table...')
     for artist in event:
         artist_id: str = artist['artist_id']
         artist_name: str = artist['artist_name']
@@ -25,7 +25,9 @@ def handler(event, context) -> dict:
 
         # Update DynamoDB with latest musical releases
         try:
-            print(f'Initiating PUT request to update {table} with {artist_name}\'s latest releases...')
+            ddb = boto3.client('dynamodb')
+            table = os.getenv('ARTIST_TABLE_NAME')
+            log.info(f'Initiating PUT request to update {table} with {artist_name}\'s latest releases...')
             
             # Convert the last_album_details and last_single_details to DynamoDB format
             converted_last_album_details: dict = {
@@ -71,40 +73,41 @@ def handler(event, context) -> dict:
                 ReturnValues='UPDATED_OLD'
             )
         except ClientError as err:
-            print(f'Client Error Message: {err.response["Error"]["Message"]}')
-            print(f'Client Error Code: {err.response["Error"]["Code"]}')
+            log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+            log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
             raise
         except Exception as err:
-            print(f'Other Error Occurred: {err}')
+            log.error(f'Other Error Occurred: {err}')
             raise
         else:
-            print(f'PUT request successful. {artist_name}\'s latest releases have been updated in {table}.')
+            log.debug(f'Returned response: {response}')
+            log.info(f'PUT request successful. {artist_name}\'s latest releases have been updated in {table}.')
             
             # Check if there are any changes in the music. If so, add artist to list of artists with changes.
-            print('Checking if there are any changes in the music...')
+            log.info('Checking if there are any changes in the music...')
             if response['Attributes']['last_album_details']['M']['last_album_name']['S'] != converted_last_album_details['M']['last_album_name']['S']:
-                print(f'{artist_name} dropped a new album! Adding {artist_name} to list of artists with changes...')
+                log.debug(f'{artist_name} dropped a new album! Adding {artist_name} to list of artists with changes...')
                 artists_with_changes.append({
                     'artist_name': artist_name,
                     'last_album_details': last_album_details,
                 })
             elif response['Attributes']['last_single_details']['M']['last_single_name']['S'] != converted_last_single_details['M']['last_single_name']['S']:
-                print(f'{artist_name} dropped a new single! Adding {artist_name} to list of artists with changes...')
+                log.debug(f'{artist_name} dropped a new single! Adding {artist_name} to list of artists with changes...')
                 artists_with_changes.append({
                     'artist_name': artist_name,
                     'last_single_details': last_single_details
                 })
             else:
-                print(f'No changes in {artist_name}\'s music.')
+                log.debug(f'No changes in {artist_name}\'s music.')
             
         
     if len(artists_with_changes) == 0:
-        print('No changes in music from all artists. Returning empty list...')
+        log.info('No changes in music from all artists. Returning empty list...')
         return {
             'new_music': artists_with_changes
         }
     else:
-        print('There were some changes in music! Returning list of artists with the updates...')
+        log.info('There were some changes in music! Returning list of artists with the updates...')
         return {
             'new_music': artists_with_changes
         }

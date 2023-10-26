@@ -1,9 +1,13 @@
 from requests.exceptions import HTTPError
 from botocore.exceptions import ClientError
 import requests
+import logging
 import boto3
 import json
 import os
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def handler(event: dict, context) -> dict:
     """
@@ -11,18 +15,19 @@ def handler(event: dict, context) -> dict:
     for the artist.
     """
     
-    print(f'Passed in event: {event}')
+    log.debug(f'Passed in event: {event}')
     
     # If no INSERT event in batch of records, don't continue execution.
     if not any(record['eventName'] == 'INSERT' for record in event['Records']):
-        print('No INSERT events in batch of records. Exiting.')
+        log.info('No INSERT events in batch of records. Exiting.')
         return {}
     
     # If access token is passed in, use it. Otherwise, invoke Lambda that will return one.
     try:
         access_token: str = event['access_token']
+        log.info('Access token passed in. Using it. :D')
     except KeyError:
-        print('Access token not passed in. Fetching new one.')
+        log.warning('Access token not passed in. Fetching new one.')
         access_token = request_token()
         
     # Keeps track of how many artists have been processed from the stream batch
@@ -44,6 +49,7 @@ def handler(event: dict, context) -> dict:
             try:
                 lambda_name = os.getenv('UPDATE_TABLE_MUSIC_LAMBDA')
                 lambda_ = boto3.client('lambda')
+                log.debug(f'Invoking Lambda that will update the DynamoDB table... (Lambda Name: {lambda_name})')
                 
                 response: dict = lambda_.invoke(
                     FunctionName=lambda_name,
@@ -56,25 +62,24 @@ def handler(event: dict, context) -> dict:
                     })
                 )
             except ClientError as err:
-                print(f'Client Error Message: {err.response["Error"]["Message"]}')
-                print(f'Client Error Code: {err.response["Error"]["Code"]}')
+                log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+                log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
                 raise
             except Exception as err:
-                print(f'Other Error Occurred: {err}')
+                log.error(f'Other Error Occurred: {err}')
                 raise
             else:
-                print(f'Successfully invoked {lambda_name} to update the DynamoDB table.')
+                log.info(f'Successfully invoked {lambda_name} to update the DynamoDB table.')
                 
                 # Convert botocore.response.StreamingBody object to dict
                 returned_json: dict = json.load(response['Payload'])
                 
-                print(returned_json)
+                log.debug(f'Returned payload: {returned_json}')
                 artists_processed += 1
     
                 return {
                     'artists_processed': artists_processed
                 }
-    
     return {}
     
 def request_token() -> str:
@@ -86,7 +91,7 @@ def request_token() -> str:
     lambda_name = os.getenv('GET_ACCESS_TOKEN_LAMBDA')
     
     try:
-        print('Invoking Lambda that will request an access token from Spotify...')        
+        log.debug(f'Invoking Lambda that will request an access token from Spotify... (Lambda Name: {lambda_name})')        
         
         lambda_ = boto3.client('lambda')
         response: dict = lambda_.invoke(
@@ -94,23 +99,23 @@ def request_token() -> str:
             InvocationType='RequestResponse'
         )
     except ClientError as err:
-        print(f'Client Error Message: {err.response["Error"]["Message"]}')
-        print(f'Client Error Code: {err.response["Error"]["Code"]}')
+        log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+        log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
     except Exception as err:
-        print(f'Other error occurred: {err}')
+        log.error(f'Other error occurred: {err}')
         raise
     else:
-        print('Parsing returned payload...')
         
         # Convert botocore.response.StreamingBody object to dict
         returned_json: dict = json.load(response['Payload'])
+        log.debug(f'Returned payload: {returned_json}')
         
         # Raise exception if payload is None, otherwise return access token
         if returned_json.get('access_token') is None:
             raise Exception('Failed to retrieve access token.')
         else:
-            print('Successfully received access token from Spotify\'s Token API.')
+            log.info('Successfully received access token from Spotify\'s Token API.')
             return returned_json['access_token']
     
 def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dict:
@@ -122,8 +127,7 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
     endpoint: str = f'https://api.spotify.com/v1/artists/{artist_id}/albums'
     
     try:
-        print(f'Initiating GET request for the {artist_name}\'s last album...')
-        
+        log.info(f'Initiating GET request for the {artist_name}\'s last album...')
         response = requests.get(
             url=endpoint,
             params={
@@ -140,21 +144,22 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
         # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
-        print(f'HTTP Error occurred: {err}')
+        log.error(f'HTTP Error occurred: {err}')
         raise
     except Exception as err:
-        print(f'Other error occurred: {err}')
+        log.error(f'Other error occurred: {err}')
         raise
     else:
-        print('Parsing returned payload...')
+        log.debug(f'Returned payload: {response.json()}')
+        log.debug('Parsing returned payload...')
         album_search_results: dict = response.json()
 
         # Catch any errors that may occur when searching for the last album
         if album_search_results.get('error'):
-            print(f'Error occurred: {album_search_results["error"]}')
+            log.error(f'Error occurred: {album_search_results["error"]}')
             raise Exception(f'Error occurred: {album_search_results["error"]}')
         elif len(album_search_results['items']) == 0:
-            print(f'No albums found for {artist_name}. Returning empty details.')
+            log.warning(f'No albums found for {artist_name}. Returning empty details.')
             return {
                 'last_album_name': '',
                 'last_album_release_date': '',
@@ -165,8 +170,7 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
         last_album: dict = album_search_results['items'][0]
         last_album_artists: list[str] = [artist['name'] for artist in last_album['artists']]
         
-        print('Successfully retrieved last album details.')
-        
+        log.info('Successfully retrieved last album details.')
         return {
             'last_album_name': last_album['name'],
             'last_album_release_date': last_album['release_date'],
@@ -182,8 +186,7 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
     endpoint: str = f'https://api.spotify.com/v1/artists/{artist_id}/albums'
     
     try:
-        print(f'Initiating GET request for the {artist_name}\'s last single...')
-        
+        log.info(f'Initiating GET request for the {artist_name}\'s last single...')
         response = requests.get(
             url=endpoint,
             params={
@@ -200,21 +203,22 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
         # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
-        print(f'HTTP Error occurred: {err}')
+        log.error(f'HTTP Error occurred: {err}')
         raise
     except Exception as err:
-        print(f'Other error occurred: {err}')
+        log.error(f'Other error occurred: {err}')
         raise
     else:
-        print('Parsing returned payload...')
+        log.debug(f'Returned payload: {response.json()}')
+        log.debug('Parsing returned payload...')
         single_search_results: dict = response.json()
 
         # Catch any errors that may occur when searching for the last single
         if single_search_results.get('error'):
-            print(f'Error occurred: {single_search_results["error"]}')
+            log.error(f'Error occurred: {single_search_results["error"]}')
             raise Exception(f'Error occurred: {single_search_results["error"]}')
         elif len(single_search_results['items']) == 0:
-            print(f'No singles found for {artist_name}. Returning empty details.')
+            log.warning(f'No singles found for {artist_name}. Returning empty details.')
             return {
                 'last_single_name': '',
                 'last_single_release_date': '',
@@ -225,8 +229,7 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
         last_single: dict = single_search_results['items'][0]
         last_single_artists: list[str] = [artist['name'] for artist in last_single['artists']]
         
-        print('Successfully retrieved last single details.')
-        
+        log.info('Successfully retrieved last single details.')
         return {
             'last_single_name': last_single['name'],
             'last_single_release_date': last_single['release_date'],
