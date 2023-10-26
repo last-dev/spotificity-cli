@@ -70,6 +70,7 @@ class NotifierConstruct(Construct):
             description=f'Updates {artist_table.table_name} with the latest music released by all of the artists being monitored',
             function_name='UpdateTableMusicForNotifierHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
+            timeout=Duration.seconds(45),
             code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
             handler='update_table_music_for_notifier.handler',
             environment={
