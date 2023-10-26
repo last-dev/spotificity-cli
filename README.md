@@ -24,9 +24,9 @@ My ever changing todo list is:
 - [x] ~~Implement AWS SNS functionality.~~
 - [x] ~~Implement EventBridge Rule that will trigger a Step Function every so often (TBD) to check for new music. This will then publish updates to the SNS topic.~~
 - [x] ~~All client side Lambda invocations use API Gateway instead of boto3.~~
+- [x] ~~Introduce better logging. Combing over my CloudWatch logs right now is... interesting.~~
 - [] Continue to brainstorm how I can better layout my new music email.
 - [] Research if Apple has an API for the iTunes store so I can include a link to purchase any of the new music.
-- [] Introduce better logging. Combing over my CloudWatch logs right now is... interesting.
 - [] Optimize CLI to reduce latency between actions. More in-memory caching? Asynchronous functions for concurrency?
 - [] Create simple in-browser frontend where I can view and interact with my table.
 

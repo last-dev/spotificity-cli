@@ -1,6 +1,10 @@
 from botocore.exceptions import ClientError
+import logging
 import boto3
 import os
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def handler(event: dict, context) -> dict:
     """
@@ -8,18 +12,16 @@ def handler(event: dict, context) -> dict:
     artist in the "Monitored Artists" DynamoDB table with the latest musical releases
     """
 
-    print(f'Passed in artist payload: {event}')
+    log.info(f'Passed in artist payload: {event}')
     artist_name: str = event['artist_name']
     artist_id: str = event['artist_id']
     last_album_details: dict = event['last_album_details']
     last_single_details: dict = event['last_single_details']
     
-    # Create a DynamoDB client
-    ddb = boto3.client('dynamodb')
-    table = os.getenv('ARTIST_TABLE_NAME')
-
     try:
-        print(f'Initiating PUT request to update {table} with {artist_name}\'s latest releases...')
+        ddb = boto3.client('dynamodb')
+        table = os.getenv('ARTIST_TABLE_NAME')
+        log.info(f'Initiating PUT request to update {table} with {artist_name}\'s latest releases...')
 
         response = ddb.update_item(
             TableName=table,
@@ -61,14 +63,15 @@ def handler(event: dict, context) -> dict:
             ReturnValues='UPDATED_OLD'
         )
     except ClientError as err:
-        print(f'Client Error Message: {err.response["Error"]["Message"]}')
-        print(f'Client Error Code: {err.response["Error"]["Code"]}')
+        log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+        log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
     except Exception as err:
-        print(f'Other Error Occurred: {err}')
+        log.error(f'Other Error Occurred: {err}')
         raise
     else: 
-        print(f'PUT request successful. {artist_name}\'s latest releases have been updated in {table}.')
+        log.debug(f'Returned payload: {response}')
+        log.info(f'PUT request successful. {artist_name}\'s latest releases have been updated in {table}.')
 
         return {
             'statusCode': 200,

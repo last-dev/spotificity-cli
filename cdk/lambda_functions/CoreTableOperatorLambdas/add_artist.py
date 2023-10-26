@@ -1,23 +1,27 @@
 from botocore.exceptions import ClientError
+import logging
 import boto3
 import json
 import os
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def handler(event: dict, context) -> dict:
     """
     Adds a new artist to the "Monitored Artists" DynamoDB table
     """
 
-    print(f'Passed in artist payload: {event["body"]}')
+    log.debug(f'Received event: {event}')
+    log.info(f'Passed in artist payload: {event["body"]}')
     payload: dict = json.loads(event['body'])
     artist_name: str = payload['artist_name']
     artist_id: str = payload['artist_id']
 
     try:
-        # Create a DynamoDB client
         ddb = boto3.client('dynamodb')
         table = os.getenv('ARTIST_TABLE_NAME')
-        print(f'Attempting to add {artist_name} to {table}...')
+        log.info(f'Attempting to add {artist_name} to {table}...')
       
         response = ddb.put_item(
             TableName=table,
@@ -32,9 +36,9 @@ def handler(event: dict, context) -> dict:
             ReturnConsumedCapacity='TOTAL'
         )
     except ClientError as err:
-        print(f'Client Error Message: {err.response["Error"]["Message"]}')
-        print(f'Client Error Code: {err.response["Error"]["Code"]}')
-        print('Error occurred while trying to add artist. Returning error message to client.')
+        log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+        log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
+        log.warning('Error occurred while trying to add artist. Returning error message to client.')
         return {
             'statusCode': err.response['ResponseMetadata']['HTTPStatusCode'],
             'headers': {
@@ -46,7 +50,7 @@ def handler(event: dict, context) -> dict:
             })
         }
     except Exception as err:
-        print(f'Other Error Occurred: {err}')
+        log.error(f'Other Error Occurred: {err}')
         return {
             'statusCode': 405,
             'headers': {
@@ -58,7 +62,8 @@ def handler(event: dict, context) -> dict:
             })
         }
     else: 
-        print(f'PUT request successful. Now monitoring {artist_name}. Returning payload to client.')
+        log.debug(f'Returned payload: {response}')
+        log.info(f'PUT request successful. Now monitoring {artist_name}. Returning payload to client.')
         return {
             'statusCode': 200,
             'headers': {
