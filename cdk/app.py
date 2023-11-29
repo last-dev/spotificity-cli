@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-from stacks.backend_stack import BackendStack
 from stacks.database_stack import DatabaseStack
-import os
+from stacks.backend_stack import BackendStack
 import aws_cdk as cdk
+import os
 
 # Use my personal AWS account
 default_account = cdk.Environment(

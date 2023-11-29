@@ -5,8 +5,8 @@ to invoke `CoreTableOperator` Lambda functions.
 
 from constructs import Construct
 from aws_cdk import (
-    aws_lambda as lambda_,
     aws_apigateway as api_gw,
+    aws_lambda as lambda_,
     aws_iam as iam,
     CfnOutput
 )

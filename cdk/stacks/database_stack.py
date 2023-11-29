@@ -1,8 +1,8 @@
 from constructs import Construct
 from aws_cdk import (
     Stack,
+    RemovalPolicy,
     aws_dynamodb as ddb,
-    RemovalPolicy
 )
 
 class DatabaseStack(Stack):    

@@ -5,9 +5,9 @@ the Spotify API.
 
 from constructs import Construct
 from aws_cdk import (
-    aws_lambda as lambda_,
     aws_lambda_event_sources as lambda_event_sources,
     aws_secretsmanager as ssm, 
+    aws_lambda as lambda_,
     aws_dynamodb as ddb
 )
 

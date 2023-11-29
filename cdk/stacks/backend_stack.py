@@ -1,7 +1,7 @@
-from stacks.custom_constructs.table_operators import CoreTableOperatorsConstruct
 from stacks.custom_constructs.spotify_operators import CoreSpotifyOperatorsConstruct
-from stacks.custom_constructs.notifier import NotifierConstruct
+from stacks.custom_constructs.table_operators import CoreTableOperatorsConstruct
 from stacks.custom_constructs.api_gateway import ApiGatewayConstruct
+from stacks.custom_constructs.notifier import NotifierConstruct
 from constructs import Construct
 from aws_cdk import (
     Stack,

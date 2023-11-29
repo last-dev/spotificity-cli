@@ -6,8 +6,8 @@ monitored artists.
 
 from constructs import Construct
 from aws_cdk import (
+    aws_dynamodb as ddb,
     aws_lambda as lambda_,
-    aws_dynamodb as ddb
 )
 
 class CoreTableOperatorsConstruct(Construct):  

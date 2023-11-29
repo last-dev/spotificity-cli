@@ -6,14 +6,14 @@ by any of the artists I follow.
 
 from constructs import Construct
 from aws_cdk import (
-    aws_lambda as lambda_,
-    aws_events as event,
-    aws_events_targets as target,
-    aws_dynamodb as ddb,
     aws_stepfunctions as stepfunction,
     aws_stepfunctions_tasks as task,
-    aws_sns as sns,
+    aws_events_targets as target,
     aws_secretsmanager as ssm,
+    aws_lambda as lambda_,
+    aws_dynamodb as ddb,
+    aws_events as event,
+    aws_sns as sns,
     aws_iam as iam,
     Duration
 )
