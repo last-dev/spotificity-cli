@@ -1,11 +1,11 @@
 from exceptions.error_handling import (
-    FailedToRetrieveToken, 
-    FailedToRetrieveMonitoredArtists,
     FailedToRetrieveListOfMatchesWithIDs,
+    FailedToRetrieveMonitoredArtists,
     ExceptionDuringLambdaExecution,
-    FailedToAddArtistToTable,
     FailedToRemoveArtistFromTable,
-    FailedToRetrieveEndpoint
+    FailedToAddArtistToTable,
+    FailedToRetrieveEndpoint,
+    FailedToRetrieveToken
 )
 from botocore.exceptions import ClientError
 from requests_aws4auth import AWS4Auth
@@ -16,8 +16,10 @@ import boto3
 import json
 import os
 
-# Local memory storage of the current artists I am monitoring
-CACHED_ARTIST_LIST: list = []
+YES_CHOICES = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
+NO_CHOICES = ['n', 'no', 'nope', 'nah', 'naw', 'na']
+GO_BACK_CHOICES = ['b', 'back']
+CACHED_ARTIST_LIST: list = []  # Local memory storage of the current artists I am monitoring
 IS_CACHE_EMPTY: bool = False
 
 def get_api_endpoint() -> str:
@@ -39,20 +41,26 @@ def get_api_endpoint() -> str:
         return parameter['Parameter']['Value']
 API_ENDPOINT: str = get_api_endpoint()
 
-def send_signed_request(method: str, url: str, service='execute-api', region=os.getenv('CDK_DEFAULT_REGION'), payload=None):
+def send_signed_request(
+    method: str, 
+    url: str, 
+    service='execute-api', 
+    region=os.getenv('CDK_DEFAULT_REGION'), 
+    payload=None
+    ) -> requests.Response:
     """
     Sends a signed HTTP request to a specified AWS service endpoint. This function will use the AWS 
     credentials available from the boto3 session to sign the HTTP request using AWS Signature Version 4.
 
     Parameters:
-    - method (str): The HTTP method for the request. Supported values: 'GET', 'POST', 'PUT', 'DELETE'.
-    - url (str): The full URL to the endpoint where the request will be sent.
-    - service (str, optional): The AWS service code for request signing. Default is 'execute-api' for API Gateway.
-    - region (str, optional): The AWS region where the request should be sent. 
-    - payload (str, optional): The payload body for 'POST' or 'PUT' requests. Default is None.
+        - method (str): 'GET', 'POST', 'PUT', or 'DELETE'
+        - url (str): The full URL to the endpoint where the request will be sent.
+        - service (str, optional): The AWS service code for request signing. Default is 'execute-api' for API Gateway.
+        - region (str, optional): The AWS region where the request should be sent. 
+        - payload (str, optional): The payload body for 'POST' or 'PUT' requests. Default is None.
 
     Returns:
-    - response (requests.Response): The HTTP response received from the endpoint.
+        - response (requests.Response): The HTTP response received from the endpoint.
     """
     
     # Create a boto3 session and fetch AWS credentials
@@ -91,7 +99,10 @@ def send_signed_request(method: str, url: str, service='execute-api', region=os.
 def request_token() -> str:
     """
     Invoke Lambda function that fetches an access token from the Spotify 
-    `/token/` API. 
+    `/token/` API.
+    
+    Returns:  
+        - str: Authenticated Spotify access token needed for all future API calls to spotify. 
     """    
     
     response = send_signed_request('GET', f'{API_ENDPOINT}/token')
@@ -106,7 +117,15 @@ def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
     """
     Instead of using nested while loops, this function uses a single while loop
     to prompt the user for input until they enter a valid selection. 
+    
+    Parameters:
+        - prompt (str): The string that is displayed to the user.
+        - valid_choices (list[str]): A list of strings representing valid inputs
+    
+    Returns:
+        - str: The validated input from the user, converted to lowercase
     """
+    
     while True:
         user_input = input(prompt).lower()
         if user_input in valid_choices:
@@ -117,6 +136,9 @@ def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
 def list_artists(continue_prompt=False) -> None:
     """
     Prints out a list of the current artists that are being monitored
+    
+    Parameters:
+        - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not. 
     """
 
     global CACHED_ARTIST_LIST, IS_CACHE_EMPTY
@@ -154,7 +176,6 @@ def list_artists(continue_prompt=False) -> None:
             print('\nCurrent monitored artists:')
             list_of_names: list[str] = response.json()['artists']['current_artists_names']
             
-            # Print out list of current artists
             for index, artist in enumerate(list_of_names, start=1):
                 print(f'\n\t[{Style.LIGHT_GREEN}{index}{Style.RESET}] {artist}')
 
@@ -166,8 +187,16 @@ def list_artists(continue_prompt=False) -> None:
 
 def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | None:
     """
-    Queries Spotify API for close matches to the users search
-    Also returns each potential artist's Spotify ID.
+    Queries Spotify API for the Spotify ID of the requested artist. Spotify ID of the artist
+    is needed to fetch the latest musical releases. 
+    User is asked to confirm Spotify returned the correct artist they were looking for. 
+    
+    Parameters:
+        - artist_name (str): Name of the artist that the user wants to add to monitored list
+        - access_token (str): Required authenticated Spotify access token to send in API request
+    
+    Returns: 
+        tuple[str, str]: A tuple containing the confirmed artist's Spotify ID and name
     """
 
     # Prep payload. Payload is a JSON formatted string
@@ -193,22 +222,17 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
         'artist_id': response.json()['artistSearchResultsList'][0]['id'],
         'artist_name': response.json()['artistSearchResultsList'][0]['name']
     }
-
-    # Define valid choices for user to enter
-    yes_choices = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
-    no_choices = ['n', 'no', 'nope', 'nah', 'naw', 'na']
-    go_back_choices = ['b', 'back']
     
     # Serve user the most likely artist they were looking for. Ask for confirmation
     answer = get_valid_user_input(
         prompt=f'\nIs {Style.LIGHT_GREEN}{first_artist_guess["artist_name"]}{Style.RESET} the artist you were looking for? (yes or no)\n> ',
-        valid_choices=(yes_choices + no_choices)
+        valid_choices=(YES_CHOICES + NO_CHOICES)
     )
-    
-    # If the user entered a valid selection, then return the most likely artist's Spotify ID and name
-    if answer in yes_choices:
+
+    # If the user confirmed the artist, return the most likely artist's Spotify ID and name
+    if answer in YES_CHOICES:
         return first_artist_guess['artist_id'], first_artist_guess['artist_name']
-    elif answer in no_choices:
+    elif answer in NO_CHOICES:
         
         # Print list of the other most likely choices and have them choose
         for index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
@@ -230,12 +254,12 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
             prompt=f'\nWhich artist were you looking for? Select the number. (or enter {Style.YELLOW}`back`{Style.RESET} to return to search prompt)\n> ',
             valid_choices=[
                 str(option_index) for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1)
-            ] + go_back_choices
+            ] + GO_BACK_CHOICES
         )              
         
         # If user choice matches an option, then return that artist's Spotify ID and name
         for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1):
-            if user_choice in go_back_choices:
+            if user_choice in GO_BACK_CHOICES:
                 return None   
             elif int(user_choice) == option_index:
                 return artist['id'], artist['name']         
@@ -243,7 +267,11 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
 def add_artist(access_token: str, continue_prompt=False) -> None:
     """
     Prompts user for which artist they want to add to be monitored. 
-    Then invokes a Lambda function that adds the artist to a list.
+    Then invokes a Lambda function that adds the artist to a list.\
+    
+    Parameters:
+        - access_token (str): Required authenticated Spotify access token to send in API request
+        - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not. 
     """
     
     global CACHED_ARTIST_LIST
@@ -251,11 +279,12 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
 
     while True:
         
-        # Ask user for which artist they want to search for 
+        # Show user a list of the artist they are already monitoring and then 
+        # ask user for which artist they want to search for 
         list_artists()
         user_artist_choice = input("\nWhich artist would you like to start monitoring?\n> ")
 
-        # Queries Spotify API to get a list of the closest matches to the user's search
+        # Query Spotify API to get a list of the closest matches to the user's search
         # User will be asked to confirm
         result = fetch_artist_id(user_artist_choice, access_token)
         
@@ -271,11 +300,9 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         if artist in CACHED_ARTIST_LIST:
             print(f'\nYou\'re already monitoring {Style.LIGHT_GREEN}{artist_name}{Style.RESET}!')
         else:
-            
-            # Prep payload
             payload = json.dumps(artist)
             
-            # Invoke a lambda to add artist
+            # Invoke a lambda to add artist to be monitored
             response = send_signed_request('POST', f'{API_ENDPOINT}/artist', payload=payload.encode())
 
             # Catch any errors that occurred during Lambda execution
@@ -296,7 +323,10 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
 
 def remove_artist(continue_prompt=False) -> None:
     """
-    Removes an artist from the monitored list
+    Removes an artist from being monitored
+    
+    Parameter:
+        - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not. 
     """
     
     global CACHED_ARTIST_LIST
@@ -310,16 +340,15 @@ def remove_artist(continue_prompt=False) -> None:
         return
 
     # Otherwise, ask them which artist they would like to remove
-    go_back_choices = ['b', 'back']
     user_choice = get_valid_user_input(
         prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {Style.YELLOW}`back`{Style.RESET} to return to main menu)\n> ',
         valid_choices=[
             str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
-        ] + go_back_choices
+        ] + GO_BACK_CHOICES
     )
 
     for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1):
-        if user_choice in go_back_choices:
+        if user_choice in GO_BACK_CHOICES:
             return
         elif int(user_choice) == choice_index:
             

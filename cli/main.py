@@ -1,14 +1,14 @@
 #!/usr/bin/python3
 
-from ui.colors import Style
 from actions.actions import (
-    list_artists,
-    add_artist,
+    get_valid_user_input,
     remove_artist,
     request_token,
-    get_valid_user_input,
+    list_artists,
+    add_artist,
     quit
 )
+from ui.colors import Style
 import subprocess
 
 def title() -> None:
