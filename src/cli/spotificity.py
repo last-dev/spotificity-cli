@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from actions.actions import (
+from utils.actions import (
     add_artist,
     get_valid_user_input,
     list_artists,
