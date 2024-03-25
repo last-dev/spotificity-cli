@@ -16,8 +16,8 @@ class BackendStack(Stack):
         # Lambda layer that bundles `requests` module 
         requests_layer = lambda_.LayerVersion(
             self, 'RequestsLayer',
-            code=lambda_.Code.from_asset('lambda_layers/requests_v2-28-2.zip'),
-            layer_version_name='Requests_v2-28-2',
+            code=lambda_.Code.from_asset('lambda_layers/requests_v2-31-0.zip'),
+            layer_version_name='Requests_v2-31-0',
             description='Bundles the "requests" module.',
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_10]
         )
