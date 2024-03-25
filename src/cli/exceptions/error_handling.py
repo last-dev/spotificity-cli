@@ -1,11 +1,11 @@
-from ui.colors import Style
+from ui.colors import RED
 
 class FailedToRetrieveToken(Exception):
     """
     Raised when Lambda function returns None for an access token
     """        
     def __str__(self) -> str:
-        return f'{Style.RED}\n\nFailed to return access_token from "GetAccessTokenHandler"'
+        return f'{RED}\n\nFailed to return access_token from "GetAccessTokenHandler"'
     
 class FailedToRetrieveMonitoredArtists(Exception):
     """
@@ -15,7 +15,7 @@ class FailedToRetrieveMonitoredArtists(Exception):
         self.error_message = error_message
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nFailed to retrieve list of artists from DynamoDB table: \n\n{self.error_message}'
+        return f'{RED}\nFailed to retrieve list of artists from DynamoDB table: \n\n{self.error_message}'
     
 class ExceptionDuringLambdaExecution(Exception):
     """
@@ -26,7 +26,7 @@ class ExceptionDuringLambdaExecution(Exception):
         self.lambda_name = lambda_name
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nWhile executing {self.lambda_name}, an exception was raised: \n\n{self.error_message}'
+        return f'{RED}\nWhile executing {self.lambda_name}, an exception was raised: \n\n{self.error_message}'
         
 class FailedToRetrieveListOfMatchesWithIDs(Exception):
     """
@@ -36,7 +36,7 @@ class FailedToRetrieveListOfMatchesWithIDs(Exception):
         self.error_message = error_message
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nFailed to retrieve list of close matches to user choice from Spotify API: \n\n{self.error_message}'
+        return f'{RED}\nFailed to retrieve list of close matches to user choice from Spotify API: \n\n{self.error_message}'
     
 class FailedToAddArtistToTable(Exception):
     """
@@ -46,7 +46,7 @@ class FailedToAddArtistToTable(Exception):
         self.error_message = error_message
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nFailed to add artist to DynamoDB table: \n\n{self.error_message}'
+        return f'{RED}\nFailed to add artist to DynamoDB table: \n\n{self.error_message}'
     
 class FailedToRemoveArtistFromTable(Exception):
     """
@@ -56,7 +56,7 @@ class FailedToRemoveArtistFromTable(Exception):
         self.error_message = error_message
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nFailed to remove artist from DynamoDB table: \n\n{self.error_message}'
+        return f'{RED}\nFailed to remove artist from DynamoDB table: \n\n{self.error_message}'
     
 class FailedToRetrieveEndpoint(Exception):
     """
@@ -66,4 +66,4 @@ class FailedToRetrieveEndpoint(Exception):
         self.error_message = error_message
 
     def __str__(self) -> str:
-        return f'{Style.RED}\nFailed to retrieve API Gateway endpoint Url from SSM Parameter Store: \n\n{self.error_message}'
+        return f'{RED}\nFailed to retrieve API Gateway endpoint Url from SSM Parameter Store: \n\n{self.error_message}'
