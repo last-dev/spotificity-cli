@@ -1,7 +1,7 @@
-from stacks.custom_constructs.spotify_operators import CoreSpotifyOperatorsConstruct
-from stacks.custom_constructs.table_operators import CoreTableOperatorsConstruct
-from stacks.custom_constructs.api_gateway import ApiGatewayConstruct
-from stacks.custom_constructs.notifier import NotifierConstruct
+from custom_constructs.spotify_operators import CoreSpotifyOperatorsConstruct
+from custom_constructs.table_operators import CoreTableOperatorsConstruct
+from custom_constructs.api_gateway import ApiGatewayConstruct
+from custom_constructs.notifier import NotifierConstruct
 from constructs import Construct
 from aws_cdk import (
     Stack,
@@ -16,7 +16,7 @@ class BackendStack(Stack):
         # Lambda layer that bundles `requests` module 
         requests_layer = lambda_.LayerVersion(
             self, 'RequestsLayer',
-            code=lambda_.Code.from_asset('lambda_layers/requests_v2-31-0.zip'),
+            code=lambda_.Code.from_asset('lambdas/lambda_layers/requests_v2-31-0.zip'),
             layer_version_name='Requests_v2-31-0',
             description='Bundles the "requests" module.',
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_10]

@@ -28,7 +28,7 @@ class NotifierConstruct(Construct):
             description='Pulls the current list of artists being monitored',
             function_name='GetArtistListForNotifierHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
+            code=lambda_.Code.from_asset('lambdas/NotifierConstructLambdas'),
             handler='get_artist_list_for_notifier.handler',
             layers=[requests_layer],
             environment={
@@ -47,7 +47,7 @@ class NotifierConstruct(Construct):
             description='Publishes a message to a SNS topic if there are currently no artists in the table',
             function_name='MessageIfNoArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
+            code=lambda_.Code.from_asset('lambdas/NotifierConstructLambdas'),
             handler='message_if_no_artists.handler',
             environment={
                 'SNS_TOPIC_ARN': _topic.topic_arn
@@ -60,7 +60,7 @@ class NotifierConstruct(Construct):
             function_name='GetLatestMusicForNotifierHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             timeout=Duration.seconds(45),
-            code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
+            code=lambda_.Code.from_asset('lambdas/NotifierConstructLambdas'),
             handler='get_latest_music_for_notifier.handler',
             layers=[requests_layer],
         )
@@ -71,7 +71,7 @@ class NotifierConstruct(Construct):
             function_name='UpdateTableMusicForNotifierHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
             timeout=Duration.seconds(45),
-            code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
+            code=lambda_.Code.from_asset('lambdas/NotifierConstructLambdas'),
             handler='update_table_music_for_notifier.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -83,7 +83,7 @@ class NotifierConstruct(Construct):
             description='Publishes a message to a SNS topic with new music.',
             function_name='MessageNewMusicHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/NotifierConstructLambdas'),
+            code=lambda_.Code.from_asset('lambdas/NotifierConstructLambdas'),
             handler='message_new_music.handler',
             environment={
                 'SNS_TOPIC_ARN': _topic.topic_arn

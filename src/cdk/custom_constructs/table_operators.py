@@ -39,7 +39,7 @@ class CoreTableOperatorsConstruct(Construct):
         self._fetch_artists_lambda = lambda_.Function(
             self, 'FetchArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreTableOperatorLambdas'),
             handler='list_artists.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -52,7 +52,7 @@ class CoreTableOperatorsConstruct(Construct):
         self._add_artist_lambda = lambda_.Function(
             self, 'AddArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreTableOperatorLambdas'),
             handler='add_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -65,7 +65,7 @@ class CoreTableOperatorsConstruct(Construct):
         self._remove_artist_lambda = lambda_.Function(
             self, 'RemoveArtistsHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreTableOperatorLambdas'),
             handler='remove_artist.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name
@@ -78,7 +78,7 @@ class CoreTableOperatorsConstruct(Construct):
         self._update_table_music_lambda = lambda_.Function(
             self, 'UpdateTableMusicHandler',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreTableOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreTableOperatorLambdas'),
             handler='update_table_music.handler',
             environment={
                 'ARTIST_TABLE_NAME': artist_table.table_name

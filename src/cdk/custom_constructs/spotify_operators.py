@@ -33,7 +33,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         self._get_access_token_lambda = lambda_.Function(
             self, 'GetAccessToken',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_access_token.handler',
             function_name='GetAccessTokenHandler',
             description=f'Calls Spotify\'s "/token/" API endpoint to get an access token.',
@@ -44,7 +44,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         self._get_artist_id_lambda = lambda_.Function(
             self, 'GetArtistID',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_artist_id.handler',
             function_name='GetArtist-IDHandler',
             description=f'Queries the Spotify "/search" API endpoint for the artist ID.',
@@ -55,7 +55,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         _get_latest_music_lambda = lambda_.Function(
             self, 'GetLatestMusic',
             runtime=lambda_.Runtime.PYTHON_3_10,
-            code=lambda_.Code.from_asset('lambda_functions/CoreSpotifyOperatorLambdas'),
+            code=lambda_.Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_latest_music.handler',
             function_name='GetLatestMusicHandler',
             description='Queries a series of Spotify API endpoints for the artist\'s latest music.',
