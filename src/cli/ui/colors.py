@@ -1,9 +1,5 @@
 class Style:
-    """
-    A class that contains all the colors that can be used in the terminal.
-    """ 
-      
-    RESET            = '\033[0m'  # Indicates the end of the color sequence
+    RESET            = '\033[0m'  
 
     BOLD             = "\033[1m"
     DIM              = "\033[2m"
@@ -37,3 +33,9 @@ class Style:
     LIGHT_CYAN       = "\033[96m"
     WHITE            = "\033[97m"
 
+
+RESET = Style.RESET
+MAGENTA = Style.MAGENTA
+YELLOW = Style.YELLOW
+RED = Style.RED
+GREEN = Style.GREEN
