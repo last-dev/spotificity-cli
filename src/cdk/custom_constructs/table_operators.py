@@ -58,12 +58,12 @@ class CoreTableOperatorsConstruct(Construct):
         remove_artist_lambda_name = 'RemoveArtistLambda'
         self.remove_artist_lambda_ = Function(
             self,
-            'RemoveArtistsHandler',
+            remove_artist_lambda_name,
             runtime=Runtime.PYTHON_3_12,
             code=Code.from_asset('lambdas/CoreTableOperatorLambdas'),
             handler='remove_artist.handler',
             environment={'ARTIST_TABLE_NAME': artist_table.table_name},
-            function_name='RemoveArtistsHandler',
+            function_name=remove_artist_lambda_name,
             description=f'Removes an artist from the DynamoDB table: {artist_table.table_name}.',
         )
         artist_table.grant_write_data(self.remove_artist_lambda_)
