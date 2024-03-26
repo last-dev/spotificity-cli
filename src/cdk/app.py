@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
 
-from stacks.database_stack import DatabaseStack
-from stacks.backend_stack import BackendStack
-import aws_cdk as cdk
 import os
 
-# Use my personal AWS account
-default_account = cdk.Environment(
-        account=os.getenv('CDK_DEFAULT_ACCOUNT'), 
-        region=os.getenv('CDK_DEFAULT_REGION')
-    )
+from aws_cdk import App, Environment
+from stacks.backend_stack import BackendStack
+from stacks.database_stack import DatabaseStack
 
-app = cdk.App()
-database_stack = DatabaseStack(
-    app, 'SpotificityDatabaseStack',
-    env=default_account
+default_account = Environment(
+    account=os.getenv('CDK_DEFAULT_ACCOUNT'), region=os.getenv('CDK_DEFAULT_REGION')
 )
+
+app = App()
+database_stack = DatabaseStack(app, 'SpotificityDatabaseStack', env=default_account)
 backend_stack = BackendStack(
-    app, 'SpotificityBackendStack',
+    app,
+    'SpotificityBackendStack',
     env=default_account,
-    monitored_artist_table=database_stack.artist_table
+    monitored_artist_table=database_stack.artist_table,
 )
-
-# Establishing that the BackendStack depends on the DatabaseStack. 
-# This ensures that the DatabaseStack is deployed before the BackendStack
 backend_stack.add_dependency(database_stack)
 
 app.synth()
