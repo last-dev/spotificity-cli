@@ -21,7 +21,7 @@ class BackendStack(Stack):
             code=Code.from_asset('lambdas/lambda_layers/requests_v2-31-0.zip'),
             layer_version_name='Requests_v2-31-0',
             description='Bundles the "requests" module.',
-            compatible_runtimes=[Runtime.PYTHON_3_10],
+            compatible_runtimes=[Runtime.PYTHON_3_12],
         )
 
         # Custom construct with setter, getter, and deleter Lambda functions
@@ -36,7 +36,7 @@ class BackendStack(Stack):
             'SpotifyOperatorsConstruct',
             artist_table_arn=monitored_artist_table.table_arn,
             artist_table_stream_arn=monitored_artist_table.table_stream_arn,
-            update_table_music_lambda=table_operators.update_table_music_lambda,
+            update_table_music_lambda=table_operators.update_table_with_music_lambda,
             requests_layer=requests_layer,
         )
 
