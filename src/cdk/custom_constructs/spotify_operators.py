@@ -24,7 +24,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         scope: Construct,
         id: str,
         artist_table_arn: str,
-        artist_table_stream_arn: str,
+        artist_table_stream_arn: str | None,
         update_table_music_lambda: Function,
         requests_layer: LayerVersion,
         **kwargs,
