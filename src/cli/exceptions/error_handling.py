@@ -1,12 +1,14 @@
 from ui.colors import RED
 
+
 class FailedToRetrieveToken(Exception):
     """
     Raised when Lambda function returns None for an access token
-    """        
+    """
     def __str__(self) -> str:
         return f'{RED}\n\nFailed to return access_token from "GetAccessTokenHandler"'
-    
+
+
 class FailedToRetrieveMonitoredArtists(Exception):
     """
     Raised when scan operation against DynamoDB table fails
@@ -16,7 +18,8 @@ class FailedToRetrieveMonitoredArtists(Exception):
 
     def __str__(self) -> str:
         return f'{RED}\nFailed to retrieve list of artists from DynamoDB table: \n\n{self.error_message}'
-    
+
+
 class ExceptionDuringLambdaExecution(Exception):
     """
     When an exception is raised during execution of a Lambda function, this exception is raised here at the client
@@ -27,7 +30,8 @@ class ExceptionDuringLambdaExecution(Exception):
 
     def __str__(self) -> str:
         return f'{RED}\nWhile executing {self.lambda_name}, an exception was raised: \n\n{self.error_message}'
-        
+
+
 class FailedToRetrieveListOfMatchesWithIDs(Exception):
     """
     Raised when a GET request to the Spotify API fails
@@ -37,7 +41,8 @@ class FailedToRetrieveListOfMatchesWithIDs(Exception):
 
     def __str__(self) -> str:
         return f'{RED}\nFailed to retrieve list of close matches to user choice from Spotify API: \n\n{self.error_message}'
-    
+
+
 class FailedToAddArtistToTable(Exception):
     """
     Raised when PUT operation on DynamoDB table fails
@@ -47,7 +52,8 @@ class FailedToAddArtistToTable(Exception):
 
     def __str__(self) -> str:
         return f'{RED}\nFailed to add artist to DynamoDB table: \n\n{self.error_message}'
-    
+
+
 class FailedToRemoveArtistFromTable(Exception):
     """
     Raised when DELETE operation on DynamoDB table fails
@@ -57,7 +63,8 @@ class FailedToRemoveArtistFromTable(Exception):
 
     def __str__(self) -> str:
         return f'{RED}\nFailed to remove artist from DynamoDB table: \n\n{self.error_message}'
-    
+
+
 class FailedToRetrieveEndpoint(Exception):
     """
     Raised when app fails to retrieve endpoint from SSM Parameter Store
