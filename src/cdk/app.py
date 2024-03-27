@@ -11,10 +11,10 @@ default_account = Environment(
 )
 
 app = App()
-database_stack = DatabaseStack(app, 'SpotificityDatabaseStack', env=default_account)
+database_stack = DatabaseStack(app, 'DatabaseStack', env=default_account)
 backend_stack = BackendStack(
     app,
-    'SpotificityBackendStack',
+    'BackendStack',
     env=default_account,
     monitored_artist_table=database_stack.artist_table,
 )
