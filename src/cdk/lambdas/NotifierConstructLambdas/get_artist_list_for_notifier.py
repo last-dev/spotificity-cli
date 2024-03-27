@@ -25,14 +25,10 @@ def handler(event: dict, context) -> dict:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.debug(f'Returned payload: {response}')
         log.debug('Parsing returned payload...')
 
-        # Catch any errors that may have occurred
         if response.get('Error'):
             log.error('Error occurred while trying to scan table. Returning error to client.')
             return {
