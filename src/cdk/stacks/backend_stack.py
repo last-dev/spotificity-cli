@@ -41,7 +41,7 @@ class BackendStack(Stack):
         )
 
         # Custom construct for the step function workflow that will be triggered by an EventBridge rate expression
-        notify_feature = NotifierConstruct(
+        NotifierConstruct(
             self,
             'NotifierConstruct',
             artist_table=monitored_artist_table,
@@ -50,7 +50,7 @@ class BackendStack(Stack):
         )
 
         # Custom construct for the API Gateway that will be used to invoke the Lambda functions
-        api_gateway = ApiGatewayConstruct(
+        ApiGatewayConstruct(
             self,
             'ApiGatewayConstruct',
             fetch_artists_lambda=table_operators.fetch_artists_lambda,
