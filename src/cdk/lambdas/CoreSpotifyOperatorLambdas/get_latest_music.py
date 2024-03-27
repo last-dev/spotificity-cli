@@ -71,13 +71,8 @@ def handler(event: dict, context) -> dict:
                 log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
                 log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
                 raise
-            except Exception as err:
-                log.error(f'Other Error Occurred: {err}')
-                raise
             else:
                 log.info(f'Successfully invoked {lambda_name} to update the DynamoDB table.')
-
-                # Convert botocore.response.StreamingBody object to dict
                 returned_json: dict = json.load(response['Payload'])
 
                 log.debug(f'Returned payload: {returned_json}')
@@ -106,12 +101,7 @@ def request_token() -> str:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other error occurred: {err}')
-        raise
     else:
-
-        # Convert botocore.response.StreamingBody object to dict
         returned_json: dict = json.load(response['Payload'])
         log.debug(f'Returned payload: {returned_json}')
 
@@ -138,14 +128,9 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
             params={'limit': 1, 'offset': 0, 'include_groups': 'album', 'market': 'US'},
             headers={'Authorization': f'Bearer {access_token}'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
-        raise
-    except Exception as err:
-        log.error(f'Other error occurred: {err}')
         raise
     else:
         log.debug(f'Returned payload: {response.json()}')
@@ -187,14 +172,9 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
             params={'limit': 1, 'offset': 0, 'include_groups': 'single', 'market': 'US'},
             headers={'Authorization': f'Bearer {access_token}'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
-        raise
-    except Exception as err:
-        log.error(f'Other error occurred: {err}')
         raise
     else:
         log.debug(f'Returned payload: {response.json()}')

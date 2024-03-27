@@ -28,8 +28,6 @@ def handler(event: dict, context) -> dict:
             params={'q': artist_name, 'type': 'artist', 'limit': 5, 'offset': 0, 'market': 'US'},
             headers={'Authorization': f'Bearer {access_token}'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
@@ -38,14 +36,6 @@ def handler(event: dict, context) -> dict:
             'statusCode': err.response.status_code,
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({'error': err.response.text, 'error_type': 'HTTP'}),
-        }
-    except Exception as err:
-        log.error(f'Other error occurred: {err}')
-        log.warning(f'Something in the handler function went wrong. Returning error to client.')
-        return {
-            'statusCode': 405,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': str(err), 'error_type': 'Other'}),
         }
     else:
         log.info(

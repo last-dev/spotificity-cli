@@ -22,17 +22,12 @@ def handler(event, context) -> dict:
 
     try:
         log.info('Attempting to pull Spotify client credentials from AWS Secrets Manager...')
-
-        # Create a Secrets Manager client
         ssm = boto3.client('secretsmanager')
 
         response = ssm.get_secret_value(SecretId='SpotifySecrets')
     except ClientError as err:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
-        raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
         raise
     else:
         log.info('Successfully retrieved Spotify client credentials from AWS Secrets Manager')
@@ -80,14 +75,9 @@ def request_token(client_id: str, client_secret: str) -> str:
             },
             data={'grant_type': 'client_credentials'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
-        raise
-    except Exception as err:
-        log.error(f'Other error occurred: {err}')
         raise
     else:
         log.info(
