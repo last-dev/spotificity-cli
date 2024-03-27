@@ -18,8 +18,6 @@ def handler(event, context) -> None:
     """
 
     log.debug(f'Event: {event}')
-
-    # Confirm email is subscribed
     confirm_email_subscription()
 
     # Check if passed in list is empty. If so, send email that there is no music to report
@@ -51,9 +49,6 @@ def send_no_music_email() -> None:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.info('Successfully published email to SNS topic.')
         log.debug(f'Published message ID is: {response["MessageId"]}')
@@ -65,7 +60,6 @@ def send_email_with_new_music(event: list) -> None:
     to report.
     """
 
-    # Random greetings
     greetings = [
         'Hello',
         'Hi',
@@ -89,14 +83,16 @@ def send_email_with_new_music(event: list) -> None:
     # Format new music into a string
     email_list_of_strings: list[str] = []
     for index, artist in enumerate(event, start=1):
+        artist_name = artist['artist_name']
+        last_album_name = artist['last_album_details']['last_album_name']
+        last_single_name = artist['last_single_details']['last_single_name']
+        last_album_release_date = artist['last_album_details']['last_album_release_date']
+        last_single_release_date = artist['last_single_details']['last_single_release_date']
+        
         if artist.get('last_album_details'):
-            email_list_of_strings.append(
-                f'{index}. \n\t{artist["artist_name"]} dropped "{artist["last_album_details"]["last_album_name"]}" on {artist["last_album_details"]["last_album_release_date"]}.'
-            )
+            email_list_of_strings.append(f'{index}. \n\t{artist_name} dropped "{last_album_name}" on {last_album_release_date}.')
         elif artist.get('last_single_details'):
-            email_list_of_strings.append(
-                f'{index}. \n\t{artist["artist_name"]} dropped "{artist["last_single_details"]["last_single_name"]}" on {artist["last_single_details"]["last_single_release_date"]}.'
-            )
+            email_list_of_strings.append(f'{index}. \n\t{artist_name} dropped "{last_single_name}" on {last_single_release_date}.')
     log.debug(f'Formatted new music into a string: {email_list_of_strings}')
 
     # Join all strings together to create one long string for the email
@@ -122,9 +118,6 @@ Here is the latest:\n
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.info('Successfully published email to SNS topic.')
         log.debug(f'Published message ID is: {response["MessageId"]}')
@@ -145,11 +138,8 @@ def confirm_email_subscription() -> None:
         ssm = boto3.client('secretsmanager')
         response = ssm.get_secret_value(SecretId='EmailSecret')
     except ClientError as err:
-        log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
+        log.error(f'Client Error: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
-        raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
         raise
     else:
         log.info('Successfully retrieved email from AWS Secrets Manager.')
@@ -169,12 +159,8 @@ def confirm_email_subscription() -> None:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.info('Successfully pulled list of subscriptions from SNS topic.')
-
         log.info('Checking to see if my email is already subscribed...')
         subscriptions: list[dict] = response['Subscriptions']
         for subscription in subscriptions:
