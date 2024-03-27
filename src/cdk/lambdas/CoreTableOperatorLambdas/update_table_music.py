@@ -67,9 +67,6 @@ def handler(event: dict, context) -> dict:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.debug(f'Returned payload: {response}')
         log.info(

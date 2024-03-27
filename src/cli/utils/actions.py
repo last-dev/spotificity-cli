@@ -6,7 +6,6 @@ import boto3
 import requests
 from botocore.exceptions import ClientError
 from exceptions.error_handling import (
-    ExceptionDuringLambdaExecution,
     FailedToAddArtistToTable,
     FailedToRemoveArtistFromTable,
     FailedToRetrieveEndpoint,
@@ -135,8 +134,8 @@ def list_artists(continue_prompt=False) -> None:
     Parameters:
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
+    
     global CACHED_ARTIST_LIST, IS_CACHE_EMPTY
-    lambda_name = 'FetchArtistsHandler'
 
     # Check if either the cache has items or the `IS_CACHE_EMPTY` flag is set to True
     # If neither is true, invoke Lambda to fetch fresh data
@@ -151,14 +150,9 @@ def list_artists(continue_prompt=False) -> None:
         # Invoke Lambda to fetch fresh data
         response = send_signed_request('GET', f'{API_ENDPOINT}/artist')
 
-        if response.json().get('error_type') == 'Other':
-            raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
-
         # Catch any errors that occurred during scan operation on DynamoDB table.
-        elif response.json().get('error_type') == 'Client':
+        if response.json().get('error_type') == 'Client':
             raise FailedToRetrieveMonitoredArtists(response.json()['error'])
-
-        # Print out list of artists
         elif response.status_code == 204:
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
 
@@ -193,18 +187,11 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
         tuple[str, str]: A tuple containing the confirmed artist's Spotify ID and name
     """
 
-    # Prep payload. Payload is a JSON formatted string
-    lambda_name = 'GetArtist-IDHandler'
     payload = json.dumps({'artist_name': artist_name, 'access_token': access_token})
-
     response = send_signed_request('POST', f'{API_ENDPOINT}/artist/id', payload=payload.encode())
 
-    # Catch any errors that occurred during lambda execution
-    if response.json().get('error_type') == 'Other':
-        raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
-
     # Catch any errors that occurred during GET request to Spotify API.
-    elif response.json().get('error_type') == 'HTTP':
+    if response.json().get('error_type') == 'HTTP':
         raise FailedToRetrieveListOfMatchesWithIDs(response.json()['error'])
     elif len(response.json()['artistSearchResultsList']) == 0:
         raise FailedToRetrieveListOfMatchesWithIDs(
@@ -271,8 +258,8 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         - access_token (str): Required authenticated Spotify access token to send in API request
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
+    
     global CACHED_ARTIST_LIST
-    lambda_name = 'AddArtistsHandler'
 
     while True:
 
@@ -298,21 +285,15 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
             print(f'\nYou\'re already monitoring {GREEN}{artist_name}{RESET}!')
         else:
             payload = json.dumps(artist)
-
-            # Invoke a lambda to add artist to be monitored
             response = send_signed_request(
                 'POST', f'{API_ENDPOINT}/artist', payload=payload.encode()
             )
 
-            # Catch any errors that occurred during Lambda execution
-            if response.json().get('error_type') == 'Other':
-                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
-
             # Catch any errors that occurred during PUT request on the DynamoDB table.
-            elif response.json().get('error_type') == 'Client':
+            if response.json().get('error_type') == 'Client':
                 raise FailedToAddArtistToTable(response.json()['error'])
             else:
-
+                
                 # Update cache with new addition
                 CACHED_ARTIST_LIST.append(artist)
                 print(f'\n\tYou are now monitoring for {GREEN}{artist_name}{RESET}\'s new music!')
@@ -328,8 +309,8 @@ def remove_artist(continue_prompt=False) -> None:
     Parameter:
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
+    
     global CACHED_ARTIST_LIST
-    lambda_name = 'RemoveArtistsHandler'
 
     # If there are currently no artists to remove, then exit the function
     list_artists()
@@ -351,26 +332,18 @@ def remove_artist(continue_prompt=False) -> None:
         if user_choice in GO_BACK_CHOICES:
             return
         elif int(user_choice) == choice_index:
-
-            # Prep payload to be sent to Lambda function
             payload = json.dumps(
                 {
                     'artist_id': CACHED_ARTIST_LIST[int(user_choice) - 1]['artist_id'],
                     'artist_name': CACHED_ARTIST_LIST[int(user_choice) - 1]['artist_name'],
                 }
             )
-
-            # Invoke a lambda function that performs a DELETE request on the DynamoDB table.
             response = send_signed_request(
                 'DELETE', f'{API_ENDPOINT}/artist', payload=payload.encode()
             )
 
-            # Catch any errors that occurred during Lambda execution
-            if response.json().get('error_type') == 'Other':
-                raise ExceptionDuringLambdaExecution(lambda_name, response.json()['error'])
-
             # Catch any errors that occurred during DELETE request on the DynamoDB table.
-            elif response.json().get('error_type') == 'Client':
+            if response.json().get('error_type') == 'Client':
                 raise FailedToRemoveArtistFromTable(response.json()['error'])
             else:
 

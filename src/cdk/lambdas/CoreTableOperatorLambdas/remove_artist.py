@@ -39,13 +39,6 @@ def handler(event: dict, context) -> dict:
             'headers': {'Content-Type': 'application/json'},
             'body': json.dumps({'error': err.response['Error'], 'error_type': 'Client'}),
         }
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        return {
-            'statusCode': 405,
-            'headers': {'Content-Type': 'application/json'},
-            'body': json.dumps({'error': str(err), 'error_type': 'Other'}),
-        }
     else:
         log.debug(f'Returned payload: {response}')
         log.info(
