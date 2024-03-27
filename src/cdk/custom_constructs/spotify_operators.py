@@ -35,7 +35,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         self.get_access_token_lambda = Function(
             self,
             get_access_token_lambda_name,
-            runtime=Runtime.PYTHON_3_10,
+            runtime=Runtime.PYTHON_3_12,
             code=Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_access_token.handler',
             function_name=get_access_token_lambda_name,
@@ -47,7 +47,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         self.get_artist_id_lambda = Function(
             self,
             get_artist_id_lambda_name,
-            runtime=Runtime.PYTHON_3_10,
+            runtime=Runtime.PYTHON_3_12,
             code=Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_artist_id.handler',
             function_name=get_artist_id_lambda_name,
@@ -65,7 +65,7 @@ class CoreSpotifyOperatorsConstruct(Construct):
         _get_latest_music_lambda = Function(
             self,
             get_latest_music_lambda_name,
-            runtime=Runtime.PYTHON_3_10,
+            runtime=Runtime.PYTHON_3_12,
             code=Code.from_asset('lambdas/CoreSpotifyOperatorLambdas'),
             handler='get_latest_music.handler',
             function_name=get_latest_music_lambda_name,
