@@ -15,10 +15,7 @@ def handler(event, context) -> None:
     no artists in the table being monitored.
     """
 
-    # Confirm email is subscribed
     confirm_email_subscription()
-
-    # Publish message to SNS topic
     try:
         log.info('Attempting to publish email to SNS topic...')
         topic_arn = os.getenv('SNS_TOPIC_ARN')
@@ -32,9 +29,6 @@ def handler(event, context) -> None:
     except ClientError as err:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
-        raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
         raise
     else:
         log.info('Successfully published email to SNS topic.')
@@ -59,13 +53,8 @@ def confirm_email_subscription() -> None:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.info('Successfully retrieved email from AWS Secrets Manager.')
-
-        # Extract email from returned payload
         email_secret_payload: dict = json.loads(response['SecretString'])
         my_email: str = email_secret_payload['MY_EMAIL']
 
@@ -80,12 +69,8 @@ def confirm_email_subscription() -> None:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
         log.error(f'Client Error Code: {err.response["Error"]["Code"]}')
         raise
-    except Exception as err:
-        log.error(f'Other Error Occurred: {err}')
-        raise
     else:
         log.info('Successfully pulled list of subscriptions from SNS topic.')
-
         log.info('Checking to see if my email is already subscribed...')
         subscriptions: list[dict] = response['Subscriptions']
         for subscription in subscriptions:
