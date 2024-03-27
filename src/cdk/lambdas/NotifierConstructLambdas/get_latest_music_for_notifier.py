@@ -61,8 +61,6 @@ def get_latest_album(artist_id: str, artist_name: str, access_token: str) -> dic
             params={'limit': 1, 'offset': 0, 'include_groups': 'album', 'market': 'US'},
             headers={'Authorization': f'Bearer {access_token}'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
@@ -111,8 +109,6 @@ def get_latest_single(artist_id: str, artist_name: str, access_token: str) -> di
             params={'limit': 1, 'offset': 0, 'include_groups': 'single', 'market': 'US'},
             headers={'Authorization': f'Bearer {access_token}'},
         )
-
-        # Catch any HTTP errors
         response.raise_for_status()
     except HTTPError as err:
         log.error(f'HTTP Error occurred: {err}')
