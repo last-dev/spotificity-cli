@@ -1,11 +1,13 @@
-from botocore.exceptions import ClientError
-import logging
-import boto3
 import json
+import logging
 import os
+
+import boto3
+from botocore.exceptions import ClientError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
 
 def handler(event: dict, context) -> dict:
     """
@@ -22,18 +24,11 @@ def handler(event: dict, context) -> dict:
         ddb = boto3.client('dynamodb')
         table = os.getenv('ARTIST_TABLE_NAME')
         log.info(f'Attempting to add {artist_name} to {table}...')
-      
+
         response = ddb.put_item(
             TableName=table,
-            Item={
-                'artist_id': {
-                    'S': artist_id
-                },
-                'artist_name': {
-                    'S': artist_name
-                }
-            },
-            ReturnConsumedCapacity='TOTAL'
+            Item={'artist_id': {'S': artist_id}, 'artist_name': {'S': artist_name}},
+            ReturnConsumedCapacity='TOTAL',
         )
     except ClientError as err:
         log.error(f'Client Error Message: {err.response["Error"]["Message"]}')
@@ -41,35 +36,23 @@ def handler(event: dict, context) -> dict:
         log.warning('Error occurred while trying to add artist. Returning error message to client.')
         return {
             'statusCode': err.response['ResponseMetadata']['HTTPStatusCode'],
-            'headers': {
-                'Content-Type': 'application/json'
-            },                
-            'body': json.dumps({
-                'error': err.response['Error'],
-                'error_type': 'Client'
-            })
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps({'error': err.response['Error'], 'error_type': 'Client'}),
         }
     except Exception as err:
         log.error(f'Other Error Occurred: {err}')
         return {
             'statusCode': 405,
-            'headers': {
-                'Content-Type': 'application/json'
-            },                
-            'body': json.dumps({
-                'error': str(err),
-                'error_type': 'Other'
-            })
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps({'error': str(err), 'error_type': 'Other'}),
         }
-    else: 
+    else:
         log.debug(f'Returned payload: {response}')
-        log.info(f'PUT request successful. Now monitoring {artist_name}. Returning payload to client.')
+        log.info(
+            f'PUT request successful. Now monitoring {artist_name}. Returning payload to client.'
+        )
         return {
             'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
-                'returned_response_from_put': response
-            })
+            'headers': {'Content-Type': 'application/json'},
+            'body': json.dumps({'returned_response_from_put': response}),
         }
