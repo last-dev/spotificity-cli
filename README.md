@@ -33,7 +33,7 @@ Some notes on development for me.
 - Activate virtual environment inside project directory: `source .venv/bin/activate`
 - Install the required dependencies: `pip install -r requirements.txt`
 - Deploy to my default AWS account/region:
-   1. Change to `cdk/` directory
+   1. Change to project root directory
    2. `cdk deploy [stack_name]` or `cdk deploy --all`
 - Run local CLI app:
    1. Change into the `cli/` directory
