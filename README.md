@@ -5,7 +5,7 @@
 
 Once upon a time, I used to stay updated with the latest music releases from some of my favorite artists. Engaging in discussions and debates about new music with my close friends was a great pastime. Nowadays, my focus on studying and coding, has made it difficult for me to keep up.
 
-To address this, I have started to create a CRUD app that periodically queries Spotify using their API to obtain a list of the latest releases from select artists and send me an email with any updates every Sunday. 
+To address this, I've created a CRUD app that periodically queries Spotify's API to obtain a list of the latest releases from select artists and send me an email with any updates every Sunday. 
 
 >***"But Spotify already offers notifications for when an artist drops, what gives?"*** 
 
@@ -32,4 +32,9 @@ Some notes on development for me.
 
 - Activate virtual environment inside project directory: `source .venv/bin/activate`
 - Install the required dependencies: `pip install -r requirements.txt`
-- Deploy this stack to my default AWS account/region: `cdk deploy [stack_name]`
+- Deploy to my default AWS account/region:
+   1. Change to `cdk/` directory
+   2. `cdk deploy [stack_name]` or `cdk deploy --all`
+- Run local CLI app:
+   1. Change into the `cli/` directory
+   2. `python spotificity.py`
