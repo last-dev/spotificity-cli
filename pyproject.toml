@@ -23,6 +23,3 @@ skip = ["cdk.out", ".venv", "__pycache__", ".git"]
 line_length = 100
 profile = "black"
 verbose = true
-
-# [tool.poetry.scripts]
-# deploy:dev = "scripts:dev"
