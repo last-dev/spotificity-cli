@@ -8,7 +8,7 @@ from src.utils.setup import InitialSetup
 
 def title() -> None:
     print(
-        fr"""\
+        fr"""
 {GREEN}
     ____             __     __          __
   / ___/____  ____  / /_(_) __(_)____(_) /___  __
