@@ -1,7 +1,7 @@
 from boto3 import Session
 from botocore.exceptions import ClientError
 
-from ...constants import accounts
+from ..helpers.constants import accounts
 from ..ui.colors import RED
 from .argparser import ArgParser
 from .signed_requests import Requests
@@ -12,12 +12,11 @@ class FailedToRetrieveEndpoint(Exception):
     Raised when app fails to retrieve endpoint from SSM Parameter Store
     """
 
-    def __init__(self, error_message: str) -> None:
-        self.error_message = error_message
+    def __init__(self, error_message: ClientError) -> None:
+        self.err = error_message
 
     def __str__(self) -> str:
-        return f'{RED}\nFailed to retrieve API Gateway endpoint Url from\
-            SSM Parameter Store: \n\n{self.error_message}'
+        return f'{RED}\n\nFailed to retrieve API Gateway endpoint url from SSM:\n{self.err}'
 
 
 class FailedToRetrieveToken(Exception):
@@ -63,10 +62,10 @@ class InitialSetup:
             session = Session(profile_name=aws_profile)
             ssm = session.client('ssm')
             parameter = ssm.get_parameter(
-                Name='/Spotificity/ApiGatewayEndpoint/prod', WithDecryption=True
+                Name='/Spotificity/ApiGatewayEndpointUrl/beta', WithDecryption=True
             )
         except ClientError as err:
-            raise FailedToRetrieveEndpoint(err.response["Error"]["Message"])
+            raise FailedToRetrieveEndpoint(err)
         else:
             return parameter['Parameter']['Value']
 
