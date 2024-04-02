@@ -4,4 +4,3 @@ requests-aws4auth>=1.2
 black==24.1
 flake8>=7
 isort>=5.13
-awscrt>=0.20
