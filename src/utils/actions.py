@@ -37,29 +37,26 @@ def list_artists(apigw_endpoint: str, aws_profile: str, continue_prompt=False) -
         else:
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
     else:
+        # Fetch fresh data
+        response = Requests.signed_request('GET', f'{apigw_endpoint}artist', aws_profile)
 
-        # Invoke Lambda to fetch fresh data
-        response = Requests.signed_request('GET', f'{apigw_endpoint}/artist', aws_profile)
-
-        # Catch any errors that occurred during scan operation on DynamoDB table.
-        if response.json().get('error_type') == 'Client':
-            raise FailedToRetrieveMonitoredArtists(response.json()['error'])
-        elif response.status_code == 204:
+        if response.status_code == 204: 
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
-
-            # Update cache to be an empty list
             CACHED_ARTIST_LIST = []
             IS_CACHE_EMPTY = True
-        else:
-            print('\nCurrent monitored artists:')
-            list_of_names: list[str] = response.json()['artists']['current_artists_names']
+            return None
+            
+        response_data: dict = response.json()
+        if response_data.get('error_type') == 'Client':
+            raise FailedToRetrieveMonitoredArtists(response_data['error'])
 
-            for index, artist in enumerate(list_of_names, start=1):
-                print(f'\n\t[{GREEN}{index}{RESET}] {artist}')
+        print('\nCurrent monitored artists:')
+        list_of_names: list[str] = response_data['artists']['current_artists_names']
+        for index, artist in enumerate(list_of_names, start=1):
+            print(f'\n\t[{GREEN}{index}{RESET}] {artist}')
 
-            # Update cache with current artists list
-            CACHED_ARTIST_LIST = response.json()['artists']['current_artists_with_id']
-            IS_CACHE_EMPTY = False
+        CACHED_ARTIST_LIST = response_data['artists']['current_artists_with_id']
+        IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
 
@@ -82,7 +79,7 @@ def fetch_artist_id(
 
     payload = json.dumps({'artist_name': artist_name, 'access_token': access_token})
     response = Requests.signed_request(
-        'POST', f'{apigw_endpoint}/artist/id', aws_profile, payload=payload.encode()
+        'POST', f'{apigw_endpoint}artist/id', aws_profile, payload=payload.encode()
     )
 
     # Catch any errors that occurred during GET request to Spotify API.
@@ -183,7 +180,7 @@ def add_artist(
         else:
             payload = json.dumps(artist)
             response = Requests.signed_request(
-                'POST', f'{apigw_endpoint}/artist', aws_profile, payload=payload.encode()
+                'POST', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode()
             )
 
             # Catch any errors that occurred during PUT request on the DynamoDB table.
@@ -236,7 +233,7 @@ def remove_artist(apigw_endpoint: str, aws_profile: str, continue_prompt=False) 
                 }
             )
             response = Requests.signed_request(
-                'DELETE', f'{apigw_endpoint}/artist', aws_profile, payload=payload.encode()
+                'DELETE', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode()
             )
 
             # Catch any errors that occurred during DELETE request on the DynamoDB table.
