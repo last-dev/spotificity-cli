@@ -1,20 +1,15 @@
 import json
-import os
 from random import choice
 
-import boto3
-import requests
-from botocore.exceptions import ClientError
-from exceptions.error_handling import (
+from ..exceptions.error_handling import (
     FailedToAddArtistToTable,
     FailedToRemoveArtistFromTable,
-    FailedToRetrieveEndpoint,
     FailedToRetrieveListOfMatchesWithIDs,
     FailedToRetrieveMonitoredArtists,
-    FailedToRetrieveToken,
 )
-from requests_aws4auth import AWS4Auth
-from ui.colors import GREEN, RED, RESET, YELLOW
+from ..ui.colors import GREEN, RED, RESET, YELLOW
+from ..utils.input_validator import Input
+from .signed_requests import Requests
 
 YES_CHOICES = ['y', 'yes', 'yeah', 'yup', 'yep', 'yea', 'ya', 'yah']
 NO_CHOICES = ['n', 'no', 'nope', 'nah', 'naw', 'na']
@@ -23,118 +18,14 @@ CACHED_ARTIST_LIST: list = []  # Local memory storage of the current artists I a
 IS_CACHE_EMPTY: bool = False
 
 
-def get_api_endpoint() -> str:
-    """
-    Retrieve API Gateway endpoint Url from SSM Parameter Store
-    """
-    try:
-        ssm = boto3.client('ssm')
-        parameter = ssm.get_parameter(
-            Name='/Spotificity/ApiGatewayEndpoint/prod', WithDecryption=True
-        )
-    except ClientError as err:
-        raise FailedToRetrieveEndpoint(err.response["Error"]["Message"])
-    else:
-        return parameter['Parameter']['Value']
-
-
-API_ENDPOINT: str = get_api_endpoint()
-
-
-def send_signed_request(
-    method: str,
-    url: str,
-    service='execute-api',
-    region=os.getenv('CDK_DEFAULT_REGION'),
-    payload=None,
-) -> requests.Response:
-    """
-    Sends a signed HTTP request to a specified AWS service endpoint. This function will use the AWS
-    credentials available from the boto3 session to sign the HTTP request using AWS Signature Version 4.
-
-    Parameters:
-        - method (str): 'GET', 'POST', 'PUT', or 'DELETE'
-        - url (str): The full URL to the endpoint where the request will be sent.
-        - service (str, optional): The AWS service code for request signing. Default is 'execute-api' for API Gateway.
-        - region (str, optional): The AWS region where the request should be sent.
-        - payload (str, optional): The payload body for 'POST' or 'PUT' requests. Default is None.
-
-    Returns:
-        - response (requests.Response): The HTTP response received from the endpoint.
-    """
-    credentials = boto3.Session().get_credentials()
-    auth = AWS4Auth(
-        credentials.access_key,
-        credentials.secret_key,
-        region,
-        service,
-        session_token=credentials.token,
-    )
-
-    http_method_map = {
-        'GET': requests.get,
-        'POST': requests.post,
-        'PUT': requests.put,
-        'DELETE': requests.delete,
-    }
-    http_request_method = http_method_map[method]
-
-    try:
-        response = http_request_method(
-            url, auth=auth, data=payload, headers={'Content-Type': 'application/json'}
-        )
-    except Exception as err:
-        print(f'{RED}Other error occurred: \n\n{err}')
-        raise
-    else:
-        return response
-
-
-def request_token() -> str:
-    """
-    Invoke Lambda function that fetches an access token from the Spotify
-    `/token/` API.
-
-    Returns:
-        - str: Authenticated Spotify access token needed for all future API calls to spotify.
-    """
-    response = send_signed_request('GET', f'{API_ENDPOINT}/token')
-
-    # Raise exception if payload is None, otherwise return access token
-    if response.json().get('access_token') is None:
-        raise FailedToRetrieveToken
-    else:
-        return response.json()['access_token']
-
-
-def get_valid_user_input(prompt: str, valid_choices: list[str]) -> str:
-    """
-    Instead of using nested while loops, this function uses a single while loop
-    to prompt the user for input until they enter a valid selection.
-
-    Parameters:
-        - prompt (str): The string that is displayed to the user.
-        - valid_choices (list[str]): A list of strings representing valid inputs
-
-    Returns:
-        - str: The validated input from the user, converted to lowercase
-    """
-    while True:
-        user_input = input(prompt).lower()
-        if user_input in valid_choices:
-            return user_input
-        else:
-            print(f'{YELLOW}\n\tPlease enter a valid selection.{RESET}')
-
-
-def list_artists(continue_prompt=False) -> None:
+def list_artists(apigw_endpoint: str, aws_profile: str, continue_prompt=False) -> None:
     """
     Prints out a list of the current artists that are being monitored
 
     Parameters:
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
-    
+
     global CACHED_ARTIST_LIST, IS_CACHE_EMPTY
 
     # Check if either the cache has items or the `IS_CACHE_EMPTY` flag is set to True
@@ -146,34 +37,33 @@ def list_artists(continue_prompt=False) -> None:
         else:
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
     else:
+        # Fetch fresh data
+        response = Requests.signed_request('GET', f'{apigw_endpoint}artist', aws_profile)
 
-        # Invoke Lambda to fetch fresh data
-        response = send_signed_request('GET', f'{API_ENDPOINT}/artist')
-
-        # Catch any errors that occurred during scan operation on DynamoDB table.
-        if response.json().get('error_type') == 'Client':
-            raise FailedToRetrieveMonitoredArtists(response.json()['error'])
-        elif response.status_code == 204:
+        if response.status_code == 204: 
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
-
-            # Update cache to be an empty list
             CACHED_ARTIST_LIST = []
             IS_CACHE_EMPTY = True
-        else:
-            print('\nCurrent monitored artists:')
-            list_of_names: list[str] = response.json()['artists']['current_artists_names']
+            return None
+            
+        response_data: dict = response.json()
+        if response_data.get('error_type') == 'Client':
+            raise FailedToRetrieveMonitoredArtists(response_data['error'])
 
-            for index, artist in enumerate(list_of_names, start=1):
-                print(f'\n\t[{GREEN}{index}{RESET}] {artist}')
+        print('\nCurrent monitored artists:')
+        list_of_names: list[str] = response_data['artists']['current_artists_names']
+        for index, artist in enumerate(list_of_names, start=1):
+            print(f'\n\t[{GREEN}{index}{RESET}] {artist}')
 
-            # Update cache with current artists list
-            CACHED_ARTIST_LIST = response.json()['artists']['current_artists_with_id']
-            IS_CACHE_EMPTY = False
+        CACHED_ARTIST_LIST = response_data['artists']['current_artists_with_id']
+        IS_CACHE_EMPTY = False
 
     menu_loop_prompt(continue_prompt)
 
 
-def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | None:
+def fetch_artist_id(
+    artist_name: str, access_token: str, apigw_endpoint: str, aws_profile: str
+) -> tuple[str, str] | None:
     """
     Queries Spotify API for the Spotify ID of the requested artist. Spotify ID of the artist
     is needed to fetch the latest musical releases.
@@ -188,7 +78,9 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
     """
 
     payload = json.dumps({'artist_name': artist_name, 'access_token': access_token})
-    response = send_signed_request('POST', f'{API_ENDPOINT}/artist/id', payload=payload.encode())
+    response = Requests.signed_request(
+        'POST', f'{apigw_endpoint}artist/id', aws_profile, payload=payload.encode()
+    )
 
     # Catch any errors that occurred during GET request to Spotify API.
     if response.json().get('error_type') == 'HTTP':
@@ -204,7 +96,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
     }
 
     # Serve user the most likely artist they were looking for. Ask for confirmation
-    answer = get_valid_user_input(
+    answer = Input.validate(
         prompt=f'\nIs {GREEN}{first_artist_guess["artist_name"]}{RESET} the artist you were looking for? (yes or no)\n> ',
         valid_choices=(YES_CHOICES + NO_CHOICES),
     )
@@ -230,7 +122,7 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
             print(f'\tGenre(s): {genres_str}')
 
         # Prompt user for artist choice again
-        user_choice = get_valid_user_input(
+        user_choice = Input.validate(
             prompt=f'\nWhich artist were you looking for? Select the number. (or enter {YELLOW}`back`{RESET} to return to search prompt)\n> ',
             valid_choices=[
                 str(option_index)
@@ -249,7 +141,9 @@ def fetch_artist_id(artist_name: str, access_token: str) -> tuple[str, str] | No
                 return artist['id'], artist['name']
 
 
-def add_artist(access_token: str, continue_prompt=False) -> None:
+def add_artist(
+    access_token: str, apigw_endpoint: str, aws_profile: str, continue_prompt=False
+) -> None:
     """
     Prompts user for which artist they want to add to be monitored.
     Then invokes a Lambda function that adds the artist to a list.
@@ -258,19 +152,19 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
         - access_token (str): Required authenticated Spotify access token to send in API request
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
-    
+
     global CACHED_ARTIST_LIST
 
     while True:
 
         # Show user a list of the artist they are already monitoring and then
         # ask user for which artist they want to search for
-        list_artists()
+        list_artists(apigw_endpoint, aws_profile)
         user_artist_choice = input("\nWhich artist would you like to start monitoring?\n> ")
 
         # Query Spotify API to get a list of the closest matches to the user's search
         # User will be asked to confirm
-        result = fetch_artist_id(user_artist_choice, access_token)
+        result = fetch_artist_id(user_artist_choice, access_token, apigw_endpoint, aws_profile)
 
         # Restart while loop since user wanted a new search
         if result is None:
@@ -285,15 +179,15 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
             print(f'\nYou\'re already monitoring {GREEN}{artist_name}{RESET}!')
         else:
             payload = json.dumps(artist)
-            response = send_signed_request(
-                'POST', f'{API_ENDPOINT}/artist', payload=payload.encode()
+            response = Requests.signed_request(
+                'POST', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode()
             )
 
             # Catch any errors that occurred during PUT request on the DynamoDB table.
             if response.json().get('error_type') == 'Client':
                 raise FailedToAddArtistToTable(response.json()['error'])
             else:
-                
+
                 # Update cache with new addition
                 CACHED_ARTIST_LIST.append(artist)
                 print(f'\n\tYou are now monitoring for {GREEN}{artist_name}{RESET}\'s new music!')
@@ -302,25 +196,25 @@ def add_artist(access_token: str, continue_prompt=False) -> None:
     menu_loop_prompt(continue_prompt)
 
 
-def remove_artist(continue_prompt=False) -> None:
+def remove_artist(apigw_endpoint: str, aws_profile: str, continue_prompt=False) -> None:
     """
     Removes an artist from being monitored
 
     Parameter:
         - continue_prompt (boolean): Whether the user is returned with the main menu after function execution or not.
     """
-    
+
     global CACHED_ARTIST_LIST
 
     # If there are currently no artists to remove, then exit the function
-    list_artists()
+    list_artists(apigw_endpoint, aws_profile)
     if not CACHED_ARTIST_LIST:
         print(f"{YELLOW}\n\tThere are no artists to remove!{RESET}")
         menu_loop_prompt(continue_prompt)
         return
 
     # Otherwise, ask them which artist they would like to remove
-    user_choice = get_valid_user_input(
+    user_choice = Input.validate(
         prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {YELLOW}`back`{RESET} to return to main menu)\n> ',
         valid_choices=[
             str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
@@ -338,8 +232,8 @@ def remove_artist(continue_prompt=False) -> None:
                     'artist_name': CACHED_ARTIST_LIST[int(user_choice) - 1]['artist_name'],
                 }
             )
-            response = send_signed_request(
-                'DELETE', f'{API_ENDPOINT}/artist', payload=payload.encode()
+            response = Requests.signed_request(
+                'DELETE', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode()
             )
 
             # Catch any errors that occurred during DELETE request on the DynamoDB table.
@@ -381,7 +275,7 @@ def menu_loop_prompt(continue_prompt: bool) -> None:
     go_back_choices = ['b', 'back', '']
 
     if continue_prompt:
-        user_choice = get_valid_user_input(
+        user_choice = Input.validate(
             prompt=f"\nPress {GREEN}[ENTER]{RESET} to go back to main menu... (Or enter {YELLOW}quit{RESET} to quit app)\n> ",
             valid_choices=(quit_choices + go_back_choices),
         )
