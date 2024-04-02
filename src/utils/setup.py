@@ -74,7 +74,7 @@ class InitialSetup:
         Invoke Lambda function that fetches an Authenticated access token
         needed for all future API calls to Spotify.
         """
-        response = Requests.signed_request('GET', f'{apigw_endpoint}/token', aws_profile)
+        response = Requests.signed_request('GET', f'{apigw_endpoint}token', aws_profile)
 
         if response.json().get('access_token') is None:
             raise FailedToRetrieveToken
