@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 
-from .ui.colors import GREEN, MAGENTA, RESET
-from .utils.actions import (
-    add_artist,
-    list_artists,
-    quit,
-    remove_artist,
-)
-from .utils.setup import InitialSetup
-from .utils.input_validator import Input
+from src.ui.colors import GREEN, MAGENTA, RESET
+from src.utils.actions import add_artist, list_artists, quit, remove_artist
+from src.utils.input_validator import Input
+from src.utils.setup import InitialSetup
 
 
 def title() -> None:
-    print(fr"""\
+    print(
+        fr"""\
 {GREEN}
     ____             __     __          __
   / ___/____  ____  / /_(_) __(_)____(_) /___  __
@@ -93,7 +89,9 @@ def main() -> None:
                     and menu_item_value['token_needed'] == True
                     and menu_item_value['continue_prompt'] == True
                 ):
-                    menu_item_value['function'](access_token, apigw_base_url, aws_profile, continue_prompt=True)
+                    menu_item_value['function'](
+                        access_token, apigw_base_url, aws_profile, continue_prompt=True
+                    )
                 elif user_choice == menu_item_num and menu_item_value['continue_prompt'] == True:
                     menu_item_value['function'](apigw_base_url, aws_profile, continue_prompt=True)
                 elif user_choice == menu_item_num:
