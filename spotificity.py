@@ -24,7 +24,6 @@ def main_menu() -> tuple[str, dict]:
     """
     Main menu where user can select what actions they want to take
     """
-
     title()
     menu_choices = {
         '1': {
@@ -62,7 +61,7 @@ def main_menu() -> tuple[str, dict]:
 
     # Fetch user choice. Check to make sure it is a proper selection
     valid_choices: list[str] = [menu_choice_key for menu_choice_key in menu_choices.keys()]
-    user_choice = Input.validate(
+    user_choice: str = Input.validate(
         prompt='\nWhat would you like to do? Make a selection:\n> ', valid_choices=valid_choices
     )
 
@@ -81,21 +80,19 @@ def main() -> None:
             # Extract out user choice for next action
             user_choice, menu_choices = main_menu()
 
-            # If user choice needs a token, pass it to the function
-            # If user choice needs to loop back to main menu after execution, pass in True for continue_prompt
-            for menu_item_num, menu_item_value in menu_choices.items():
-                if (
-                    user_choice == menu_item_num
-                    and menu_item_value['token_needed'] == True
-                    and menu_item_value['continue_prompt'] == True
-                ):
-                    menu_item_value['function'](
-                        access_token, apigw_base_url, aws_profile, continue_prompt=True
-                    )
-                elif user_choice == menu_item_num and menu_item_value['continue_prompt'] == True:
-                    menu_item_value['function'](apigw_base_url, aws_profile, continue_prompt=True)
-                elif user_choice == menu_item_num:
-                    menu_item_value['function']()
+            # Process user's choice
+            for menu_number, action_details in menu_choices.items():
+                needs_token = action_details['token_needed']
+                should_continue = action_details['continue_prompt']
+                action_function = action_details['function']
+                    
+                if user_choice == menu_number:
+                    if needs_token and should_continue:
+                        action_function(access_token, apigw_base_url, aws_profile, continue_prompt=True)
+                    elif should_continue:
+                        action_function(apigw_base_url, aws_profile, continue_prompt=True)
+                    else:
+                        action_function()
         except KeyboardInterrupt:
             quit()
 
