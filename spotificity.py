@@ -85,7 +85,7 @@ def main() -> None:
                 needs_token = action_details['token_needed']
                 should_continue = action_details['continue_prompt']
                 action_function = action_details['function']
-                    
+
                 if user_choice == menu_number:
                     if needs_token and should_continue:
                         action_function(access_token, apigw_base_url, aws_profile, continue_prompt=True)
