@@ -20,9 +20,7 @@ class Requests:
     """
 
     @staticmethod
-    def signed_request(
-        method: str, url: str, aws_profile: str, service='execute-api', payload=None
-    ) -> Response:
+    def signed_request(method: str, url: str, aws_profile: str, service='execute-api', payload=None) -> Response:
         credentials = Session(profile_name=aws_profile).get_credentials()
         auth = AWS4Auth(
             credentials.access_key,

@@ -40,12 +40,12 @@ def list_artists(apigw_endpoint: str, aws_profile: str, continue_prompt=False) -
         # Fetch fresh data
         response = Requests.signed_request('GET', f'{apigw_endpoint}artist', aws_profile)
 
-        if response.status_code == 204: 
+        if response.status_code == 204:
             print(f'{YELLOW}\n\tNo artists currently being monitored.{RESET}')
             CACHED_ARTIST_LIST = []
             IS_CACHE_EMPTY = True
             return None
-            
+
         response_data: dict = response.json()
         if response_data.get('error_type') == 'Client':
             raise FailedToRetrieveMonitoredArtists(response_data['error'])
@@ -78,17 +78,13 @@ def fetch_artist_id(
     """
 
     payload = json.dumps({'artist_name': artist_name, 'access_token': access_token})
-    response = Requests.signed_request(
-        'POST', f'{apigw_endpoint}artist/id', aws_profile, payload=payload.encode()
-    )
+    response = Requests.signed_request('POST', f'{apigw_endpoint}artist/id', aws_profile, payload=payload.encode())
 
     # Catch any errors that occurred during GET request to Spotify API.
     if response.json().get('error_type') == 'HTTP':
         raise FailedToRetrieveListOfMatchesWithIDs(response.json()['error'])
     elif len(response.json()['artistSearchResultsList']) == 0:
-        raise FailedToRetrieveListOfMatchesWithIDs(
-            'No artists found that closely match your search.'
-        )
+        raise FailedToRetrieveListOfMatchesWithIDs('No artists found that closely match your search.')
 
     first_artist_guess = {
         'artist_id': response.json()['artistSearchResultsList'][0]['id'],
@@ -126,9 +122,7 @@ def fetch_artist_id(
             prompt=f'\nWhich artist were you looking for? Select the number. (or enter {YELLOW}`back`{RESET} to return to search prompt)\n> ',
             valid_choices=[
                 str(option_index)
-                for option_index, artist in enumerate(
-                    response.json()['artistSearchResultsList'], start=1
-                )
+                for option_index, artist in enumerate(response.json()['artistSearchResultsList'], start=1)
             ]
             + GO_BACK_CHOICES,
         )
@@ -141,9 +135,7 @@ def fetch_artist_id(
                 return artist['id'], artist['name']
 
 
-def add_artist(
-    access_token: str, apigw_endpoint: str, aws_profile: str, continue_prompt=False
-) -> None:
+def add_artist(access_token: str, apigw_endpoint: str, aws_profile: str, continue_prompt=False) -> None:
     """
     Prompts user for which artist they want to add to be monitored.
     Then invokes a Lambda function that adds the artist to a list.
@@ -179,9 +171,7 @@ def add_artist(
             print(f'\nYou\'re already monitoring {GREEN}{artist_name}{RESET}!')
         else:
             payload = json.dumps(artist)
-            response = Requests.signed_request(
-                'POST', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode()
-            )
+            response = Requests.signed_request('POST', f'{apigw_endpoint}artist', aws_profile, payload=payload.encode())
 
             # Catch any errors that occurred during PUT request on the DynamoDB table.
             if response.json().get('error_type') == 'Client':
@@ -216,9 +206,7 @@ def remove_artist(apigw_endpoint: str, aws_profile: str, continue_prompt=False) 
     # Otherwise, ask them which artist they would like to remove
     user_choice = Input.validate(
         prompt=f'\nWhich artist would you like to remove? Make a selection: (or enter {YELLOW}`back`{RESET} to return to main menu)\n> ',
-        valid_choices=[
-            str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)
-        ]
+        valid_choices=[str(choice_index) for choice_index, artist in enumerate(CACHED_ARTIST_LIST, start=1)]
         + GO_BACK_CHOICES,
     )
 

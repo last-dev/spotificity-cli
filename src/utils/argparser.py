@@ -42,7 +42,7 @@ class ArgParser:
         return self._profile_name
 
     def __init__(self) -> None:
-        self._profile_name: str = self.parse_cli_args()
+        self._profile_name = self.parse_cli_args()
         self.check_aws_profile_exists(self._profile_name)
 
     def parse_cli_args(self) -> str:
