@@ -28,13 +28,11 @@ Current todo list is:
 
 ## **Development**
 
-Some notes on development for me.
+Some notes on development. The assumption is you're using Python 3.12.
 
-- Activate virtual environment inside project directory: `source .venv/bin/activate`
-- Install the required dependencies: `pip install -r requirements.txt`
-- Deploy to my default AWS account/region:
-   1. Change to project root directory
-   2. `cdk deploy [stack_name]` or `cdk deploy --all`
-- Run local CLI app:
-   1. Change into the `cli/` directory
-   2. `python spotificity.py`
+1. Create virtual env: `python -m venv .venv`
+2. Activate virtual env: `source .venv/bin/activate`
+3. Install required dependencies: `pip install -r requirements.txt && pip install -r requirements-dev.txt`
+4. Running local CLI app:
+   - To run the script, you have to provide the AWS CLI profile you will be using. From the root directory, run: `python spotificity.py --profile [profile_name]`
+   - Specifying different profiles allows me to dynamically target different environments, such as prod or testing with my dev account.
