@@ -1,6 +1,8 @@
 
 # **Spotificity (AWS CDK App)**
 
+To see the CDK code for this app, see: https://github.com/last-dev/spotificity-cdk
+
 ## **What is this? Why build it?**
 
 Once upon a time, I used to stay updated with the latest music releases from some of my favorite artists. Engaging in discussions and debates about new music with my close friends was a great pastime. Nowadays, my focus on studying and coding, has made it difficult for me to keep up.
